@@ -19,8 +19,6 @@ Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
 // Analytics Routes
 Route::get('/analytics', [DashboardController::class, 'analytics'])->name('analytics');
-Route::get('/anomalies', [DashboardController::class, 'anomalies'])->name('anomalies');
-Route::get('/maintenance', [DashboardController::class, 'maintenance'])->name('maintenance');
 Route::get('/branch-comparison', [DashboardController::class, 'branchComparison'])->name('branch-comparison');
 Route::get('/alerts', [DashboardController::class, 'alerts'])->name('alerts');
 
@@ -30,17 +28,29 @@ Route::patch('/alerts/{id}/dismiss', [DashboardController::class, 'dismissAlert'
 
 // Temperature Data Routes
 Route::resource('temperature', TemperatureController::class);
+Route::get('/temperature/{temperature}/edit', [TemperatureController::class, 'edit'])->name('temperature.edit');
 Route::post('/temperature/upload-pdf', [TemperatureController::class, 'uploadPdf'])->name('temperature.upload-pdf');
 Route::post('/temperature/upload-excel', [TemperatureController::class, 'uploadExcel'])->name('temperature.upload-excel');
 Route::get('/temperature/export/pdf', [TemperatureController::class, 'exportPdf'])->name('temperature.export-pdf');
 
+// API Routes for machine info
+Route::get('/api/machines/{machine}/info', [MachineController::class, 'apiMachineInfo'])->name('api.machine-info');
+
 // Anomaly Management Routes
-Route::resource('anomalies', AnomalyController::class)->only(['index', 'show', 'update']);
+Route::get('/anomalies', [AnomalyController::class, 'index'])->name('anomalies.index');
+Route::get('/anomalies/{anomaly}', [AnomalyController::class, 'show'])->name('anomalies.show');
+Route::put('/anomalies/{anomaly}', [AnomalyController::class, 'update'])->name('anomalies.update');
 Route::patch('/anomalies/{anomaly}/acknowledge', [AnomalyController::class, 'acknowledge'])->name('anomalies.acknowledge');
 Route::patch('/anomalies/{anomaly}/resolve', [AnomalyController::class, 'resolve'])->name('anomalies.resolve');
 
 // Maintenance Management Routes
-Route::resource('maintenance', MaintenanceController::class);
+Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
+Route::get('/maintenance/create', [MaintenanceController::class, 'create'])->name('maintenance.create');
+Route::post('/maintenance', [MaintenanceController::class, 'store'])->name('maintenance.store');
+Route::get('/maintenance/{maintenance}', [MaintenanceController::class, 'show'])->name('maintenance.show');
+Route::get('/maintenance/{maintenance}/edit', [MaintenanceController::class, 'edit'])->name('maintenance.edit');
+Route::put('/maintenance/{maintenance}', [MaintenanceController::class, 'update'])->name('maintenance.update');
+Route::delete('/maintenance/{maintenance}', [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
 Route::patch('/maintenance/{recommendation}/schedule', [MaintenanceController::class, 'schedule'])->name('maintenance.schedule');
 Route::patch('/maintenance/{recommendation}/complete', [MaintenanceController::class, 'complete'])->name('maintenance.complete');
 Route::get('/maintenance/export/pdf', [MaintenanceController::class, 'exportPdf'])->name('maintenance.export-pdf');

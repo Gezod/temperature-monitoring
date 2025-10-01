@@ -40,6 +40,7 @@ class BranchController extends Controller
 
     public function create()
     {
+        $machines = Machine::with('branch')->where('is_active', true)->get();
         return view('branches.create');
     }
 
@@ -51,13 +52,18 @@ class BranchController extends Controller
             'address' => 'nullable|string|max:500',
             'city' => 'required|string|max:100',
             'region' => 'nullable|string|max:100',
-            'contact_info' => 'nullable|json'
+            'phone' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'manager' => 'nullable|string|max:255',
+            'operating_hours' => 'nullable|string|max:100'
         ]);
 
-        $contactInfo = null;
-        if ($request->contact_info) {
-            $contactInfo = json_decode($request->contact_info, true);
-        }
+        $contactInfo = array_filter([
+            'phone' => $request->phone,
+            'email' => $request->email,
+            'manager' => $request->manager,
+            'operating_hours' => $request->operating_hours
+        ]);
 
         Branch::create([
             'name' => $request->name,
@@ -65,7 +71,7 @@ class BranchController extends Controller
             'address' => $request->address,
             'city' => $request->city,
             'region' => $request->region,
-            'contact_info' => $contactInfo,
+            'contact_info' => $contactInfo ?: null,
             'is_active' => true
         ]);
 
@@ -127,14 +133,19 @@ class BranchController extends Controller
             'address' => 'nullable|string|max:500',
             'city' => 'required|string|max:100',
             'region' => 'nullable|string|max:100',
-            'contact_info' => 'nullable|json',
+            'phone' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'manager' => 'nullable|string|max:255',
+            'operating_hours' => 'nullable|string|max:100',
             'is_active' => 'boolean'
         ]);
 
-        $contactInfo = null;
-        if ($request->contact_info) {
-            $contactInfo = json_decode($request->contact_info, true);
-        }
+        $contactInfo = array_filter([
+            'phone' => $request->phone,
+            'email' => $request->email,
+            'manager' => $request->manager,
+            'operating_hours' => $request->operating_hours
+        ]);
 
         $branch->update([
             'name' => $request->name,
@@ -142,7 +153,7 @@ class BranchController extends Controller
             'address' => $request->address,
             'city' => $request->city,
             'region' => $request->region,
-            'contact_info' => $contactInfo,
+            'contact_info' => $contactInfo ?: null,
             'is_active' => $request->has('is_active')
         ]);
 

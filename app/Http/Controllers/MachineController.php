@@ -308,4 +308,14 @@ class MachineController extends Controller
             ], 500);
         }
     }
+
+    public function apiMachineInfo(Machine $machine)
+    {
+        $machine->load('branch');
+
+        return response()->json([
+            'success' => true,
+            'machine' => $machine
+        ]);
+    }
 }

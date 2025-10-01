@@ -55,7 +55,7 @@ class TemperatureController extends Controller
     public function create()
     {
         $machines = Machine::with('branch')->where('is_active', true)->get();
-        return view('temperature.create', compact('machines'));
+        return view('layouts.temperature.create', compact('machines'));
     }
 
     public function store(Request $request)
@@ -233,6 +233,56 @@ class TemperatureController extends Controller
             ->get();
 
         return view('temperature.show', compact('reading', 'nearbyReadings'));
+    }
+
+    public function edit($id)
+    {
+        $reading = TemperatureReading::with(['machine.branch'])->findOrFail($id);
+
+        // Only allow editing of manual readings
+        if ($reading->reading_type !== 'manual') {
+            return redirect()->route('temperature.show', $reading)
+                ->with('error', 'Only manual readings can be edited.');
+        }
+
+        $machines = Machine::with('branch')->where('is_active', true)->get();
+
+        return view('temperature.edit', compact('reading', 'machines'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $reading = TemperatureReading::findOrFail($id);
+
+        // Only allow editing of manual readings
+        if ($reading->reading_type !== 'manual') {
+            return redirect()->route('temperature.show', $reading)
+                ->with('error', 'Only manual readings can be edited.');
+        }
+
+        $request->validate([
+            'machine_id' => 'required|exists:machines,id',
+            'recorded_at' => 'required|date',
+            'temperature' => 'required|numeric',
+            'reading_type' => 'required|in:automatic,manual,imported'
+        ]);
+
+        $reading->update([
+            'machine_id' => $request->machine_id,
+            'recorded_at' => $request->recorded_at,
+            'temperature' => $request->temperature,
+            'reading_type' => $request->reading_type,
+            'metadata' => $request->metadata ? json_decode($request->metadata, true) : null
+        ]);
+
+        // Re-check for anomalies
+        $this->anomalyService->checkSingleReading($reading);
+
+        // Update monthly summary
+        $this->updateMonthlySummary($reading);
+
+        return redirect()->route('temperature.show', $reading)
+            ->with('success', 'Temperature reading updated successfully.');
     }
 
     public function destroy($id)

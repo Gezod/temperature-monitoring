@@ -282,16 +282,16 @@
                                 <i class="bi bi-graph-up"></i> Analytics
                             </a>
                         </li>
-                        {{-- <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('anomalies') ? 'active' : '' }}" href="{{ route('anomalies') }}">
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('anomalies.*') ? 'active' : '' }}" href="{{ route('anomalies.index') }}">
                                 <i class="bi bi-exclamation-triangle"></i> Anomalies
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('maintenance') ? 'active' : '' }}" href="{{ route('maintenance') }}">
+                            <a class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}" href="{{ route('maintenance.index') }}">
                                 <i class="bi bi-tools"></i> Maintenance
                             </a>
-                        </li> --}}
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}" href="{{ route('branch-comparison') }}">
                                 <i class="bi bi-bar-chart"></i> Branch Comparison

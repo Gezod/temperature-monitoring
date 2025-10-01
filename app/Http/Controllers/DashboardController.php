@@ -94,7 +94,7 @@ class DashboardController extends Controller
 
     public function analytics(Request $request)
     {
-        $filters = $request->only(['branch_id', 'machine_id', 'date_from', 'date_to', 'chart_type']);
+        $filters = $request->only(['branch_id', 'machine_id', 'date_from', 'date_to']);
 
         // Get filtered data
         $analyticsData = $this->analyticsService->getAdvancedAnalytics($filters);
@@ -109,7 +109,7 @@ class DashboardController extends Controller
         $branches = Branch::where('is_active', true)->get();
         $machines = Machine::where('is_active', true)->with('branch')->get();
 
-        return view('dashboard.analytics', compact(
+        return view('layouts.dashboard.analytics', compact(
             'analyticsData',
             'seasonalAnalysis',
             'performanceComparison',
@@ -174,10 +174,14 @@ class DashboardController extends Controller
 
         $performanceRankings = $this->analyticsService->getBranchPerformanceRankings();
 
-        return view('branches.index', compact(
+        // Get branch performance summary for the view
+        $branchPerformance = $this->analyticsService->getBranchPerformanceSummary();
+
+        return view('layouts.dashboard.branch-comparison', compact(
             'branches',
             'comparisonData',
-            'performanceRankings'
+            'performanceRankings',
+            'branchPerformance'
         ));
     }
 
