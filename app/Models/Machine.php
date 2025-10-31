@@ -86,4 +86,10 @@ class Machine extends Model
     {
         return $this->anomalies()->whereIn('status', ['new', 'acknowledged', 'investigating'])->count();
     }
+
+    // temperature
+    public function temperature(): HasMany
+    {
+        return $this->hasMany(Temperature::class);
+    }
 }

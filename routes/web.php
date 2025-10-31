@@ -32,6 +32,7 @@ Route::get('/temperature/{temperature}/edit', [TemperatureController::class, 'ed
 Route::post('/temperature/upload-pdf', [TemperatureController::class, 'uploadPdf'])->name('temperature.upload-pdf');
 Route::post('/temperature/upload-excel', [TemperatureController::class, 'uploadExcel'])->name('temperature.upload-excel');
 Route::get('/temperature/export/pdf', [TemperatureController::class, 'exportPdf'])->name('temperature.export-pdf');
+Route::post('/upload-pdf', [TemperatureController::class, 'uploadPdfPy'])->name('temperature.upload-pdf-py');
 
 // API Routes for machine info
 Route::get('/api/machines/{machine}/info', [MachineController::class, 'apiMachineInfo'])->name('api.machine-info');

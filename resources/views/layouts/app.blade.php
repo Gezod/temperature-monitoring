@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,7 +30,7 @@
 
         .navbar {
             background: var(--primary-gradient);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
         .navbar-brand {
@@ -50,7 +51,7 @@
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             min-height: calc(100vh - 100px);
         }
 
@@ -78,7 +79,7 @@
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             min-height: calc(100vh - 100px);
             padding: 30px;
         }
@@ -86,13 +87,13 @@
         .card {
             border: none;
             border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
         }
 
         .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
         }
 
         .card-header {
@@ -164,7 +165,7 @@
         .table {
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
 
         .table thead th {
@@ -195,31 +196,57 @@
             border-radius: 15px 15px 0 0;
         }
 
-        .form-control, .form-select {
+        .form-control,
+        .form-select {
             border-radius: 10px;
             border: 2px solid #e9ecef;
             padding: 12px 15px;
             transition: all 0.3s ease;
         }
 
-        .form-control:focus, .form-select:focus {
+        .form-control:focus,
+        .form-select:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
 
-        .anomaly-critical { background-color: #dc3545; color: white; }
-        .anomaly-high { background-color: #fd7e14; color: white; }
-        .anomaly-medium { background-color: #ffc107; color: black; }
-        .anomaly-low { background-color: #198754; color: white; }
+        .anomaly-critical {
+            background-color: #dc3545;
+            color: white;
+        }
 
-        .status-normal { color: #198754; }
-        .status-warning { color: #fd7e14; }
-        .status-critical { color: #dc3545; }
+        .anomaly-high {
+            background-color: #fd7e14;
+            color: white;
+        }
+
+        .anomaly-medium {
+            background-color: #ffc107;
+            color: black;
+        }
+
+        .anomaly-low {
+            background-color: #198754;
+            color: white;
+        }
+
+        .status-normal {
+            color: #198754;
+        }
+
+        .status-warning {
+            color: #fd7e14;
+        }
+
+        .status-critical {
+            color: #dc3545;
+        }
 
         @media (max-width: 768px) {
             .sidebar {
                 margin-bottom: 20px;
             }
+
             .main-content {
                 margin-top: 0;
             }
@@ -228,6 +255,7 @@
 
     @stack('styles')
 </head>
+
 <body>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
@@ -243,7 +271,8 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button"
+                            data-bs-toggle="dropdown">
                             <i class="bi bi-bell"></i>
                             <span class="badge bg-danger" id="alertCount">0</span>
                         </a>
@@ -268,43 +297,51 @@
                 <div class="sidebar p-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                            <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
+                                href="{{ route('dashboard') }}">
                                 <i class="bi bi-speedometer2"></i> Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('temperature.*') ? 'active' : '' }}" href="{{ route('temperature.index') }}">
+                            <a class="nav-link {{ request()->routeIs('branches.*') ? 'active' : '' }}"
+                                href="{{ route('branches.index') }}">
+                                <i class="bi bi-building"></i> Cabang (Branches)
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('machines.*') ? 'active' : '' }}"
+                                href="{{ route('machines.index') }}">
+                                <i class="bi bi-cpu"></i> Mesin (Machines)
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('temperature.*') ? 'active' : '' }}"
+                                href="{{ route('temperature.index') }}">
                                 <i class="bi bi-thermometer"></i> Temperature Data
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('analytics') ? 'active' : '' }}" href="{{ route('analytics') }}">
-                                <i class="bi bi-graph-up"></i> Analytics
+                            <a class="nav-link {{ request()->routeIs('analytics') ? 'active' : '' }}"
+                                href="{{ route('analytics') }}">
+                                <i class="bi bi-graph-up"></i> Analisis (Analytics)
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('anomalies.*') ? 'active' : '' }}" href="{{ route('anomalies.index') }}">
-                                <i class="bi bi-exclamation-triangle"></i> Anomalies
+                            <a class="nav-link {{ request()->routeIs('anomalies.*') ? 'active' : '' }}"
+                                href="{{ route('anomalies.index') }}">
+                                <i class="bi bi-exclamation-triangle"></i> Anomali (Anomalies)
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}" href="{{ route('maintenance.index') }}">
-                                <i class="bi bi-tools"></i> Maintenance
+                            <a class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}"
+                                href="{{ route('maintenance.index') }}">
+                                <i class="bi bi-tools"></i> Pemeliharaan (Maintenance)
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}" href="{{ route('branch-comparison') }}">
-                                <i class="bi bi-bar-chart"></i> Branch Comparison
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('machines.*') ? 'active' : '' }}" href="{{ route('machines.index') }}">
-                                <i class="bi bi-cpu"></i> Machines
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('branches.*') ? 'active' : '' }}" href="{{ route('branches.index') }}">
-                                <i class="bi bi-building"></i> Branches
+                            <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}"
+                                href="{{ route('branch-comparison') }}">
+                                <i class="bi bi-bar-chart"></i> Perbandingan Cabang (Branch Comparison)
                             </a>
                         </li>
                     </ul>
@@ -353,7 +390,7 @@
     <script>
         // Auto-refresh functionality
         function startAutoRefresh() {
-            setInterval(function() {
+            setInterval(function () {
                 if (document.getElementById('auto-refresh')?.checked) {
                     location.reload();
                 }
@@ -361,7 +398,7 @@
         }
 
         // Initialize tooltips
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
@@ -403,4 +440,5 @@
 
     @stack('scripts')
 </body>
+
 </html>

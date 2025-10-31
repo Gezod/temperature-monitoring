@@ -28,7 +28,16 @@
                 <label for="machine_id" class="form-label">Filter Mesin</label>
                 <select name="machine_id" id="machine_id" class="form-select">
                     <option value="">Semua Mesin</option>
-                    
+                    @foreach($machines->groupBy('branch.name') as $branchName => $branchMachines)
+                        <optgroup label="{{ $branchName }}">
+                            @foreach($branchMachines as $machine)
+                                <option value="{{ $machine->id }}"
+                                    {{ request('machine_id') == $machine->id ? 'selected' : '' }}>
+                                    {{ $machine->name }} ({{ $machine->type }})
+                                </option>
+                            @endforeach
+                        </optgroup>
+                    @endforeach
                 </select>
             </div>
             <div class="col-md-3">
@@ -58,6 +67,7 @@
     <div class="card-header">
         <h5 class="mb-0">
             <i class="bi bi-list-ul"></i> Daftar Pembacaan Suhu
+            <span class="badge bg-secondary ms-2">{{ $readings->total() }} total</span>
         </h5>
     </div>
     <div class="card-body">
@@ -66,31 +76,76 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>No</th>
-                            <th>Temperature</th>
-                            <th>Time Stamp</th>
-                            <th>Temperature</th>
-                            
+                            <th>Tanggal & Waktu</th>
+                            <th>Cabang</th>
+                            <th>Mesin</th>
+                            <th>Suhu</th>
+                            <th>Status</th>
+                            <th>Tipe Pembacaan</th>
+                            <th>File Sumber</th>
+                            <th>Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($readings as $reading)
                             <tr class="{{ $reading->is_anomaly ? 'table-warning' : '' }}">
                                 <td>
-                                    {{  $loop->iteration }} 
+                                    <strong>{{ $reading->recorded_at->format('d/m/Y H:i:s') }}</strong>
                                 </td>
-                                <td>
-                                    {{ $reading->temperature_value }} derajat celcius
-                                </td>
-                                <td>
-                                    {{ $reading->timestamp }}
-                                </td>
+                                <td>{{ $reading->machine->branch->name }}</td>
                                 <td>
                                     <strong>{{ $reading->machine->name }}</strong><br>
                                     <small class="text-muted">{{ $reading->machine->type }}</small>
                                 </td>
-                                
-                                
+                                <td>
+                                    <strong class="text-{{ $reading->status == 'critical' ? 'danger' : ($reading->status == 'warning' ? 'warning' : 'success') }}">
+                                        {{ number_format($reading->temperature, 1) }}°C
+                                    </strong>
+                                    @if($reading->is_anomaly)
+                                        <i class="bi bi-exclamation-triangle text-warning" title="Anomali Terdeteksi"></i>
+                                    @endif
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ $reading->status == 'critical' ? 'danger' : ($reading->status == 'warning' ? 'warning' : 'success') }}">
+                                        @if($reading->status == 'critical')
+                                            Critical
+                                        @elseif($reading->status == 'warning')
+                                            Warning
+                                        @else
+                                            Normal
+                                        @endif
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ $reading->reading_type == 'automatic' ? 'info' : ($reading->reading_type == 'imported' ? 'secondary' : 'primary') }}">
+                                        {{ ucfirst($reading->reading_type) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    @if($reading->source_file)
+                                        <small class="text-muted">{{ $reading->source_file }}</small>
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ route('temperature.show', $reading->id) }}"
+                                           class="btn btn-outline-info btn-sm" title="Detail">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        @if($reading->reading_type === 'manual')
+                                            <form method="POST" action="{{ route('temperature.destroy', $reading->id) }}"
+                                                  class="d-inline" onsubmit="return confirm('Yakin ingin menghapus data ini?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Hapus">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -99,6 +154,7 @@
 
             <!-- Pagination -->
             <div class="d-flex justify-content-center mt-3">
+                {{ $readings->withQueryString()->links() }}
             </div>
         @else
             <div class="text-center py-5">
@@ -172,7 +228,9 @@
                             @csrf
                             <div class="mb-3">
                                 <label for="machine_id_excel" class="form-label">Pilih Mesin</label>
-                                @foreach($machines->groupBy('branch.name') as $branchName => $branchMachines)
+                                <select name="machine_id" id="machine_id_excel" class="form-select" required>
+                                    <option value="">Pilih mesin...</option>
+                                    @foreach($machines->groupBy('branch.name') as $branchName => $branchMachines)
                                         <optgroup label="{{ $branchName }}">
                                             @foreach($branchMachines as $machine)
                                                 <option value="{{ $machine->id }}">
@@ -181,6 +239,7 @@
                                             @endforeach
                                         </optgroup>
                                     @endforeach
+                                </select>
                             </div>
                             <div class="mb-3">
                                 <label for="excel_file" class="form-label">File Excel/CSV</label>

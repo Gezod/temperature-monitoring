@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Machine;
+use App\Models\Temperature;
 use App\Models\TemperatureReading;
 use App\Models\MonthlySummary;
 use App\Services\PdfProcessingService;
@@ -12,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
-
+use Illuminate\Support\Facades\Http;
 class TemperatureController extends Controller
 {
     protected $pdfService;
@@ -31,25 +32,27 @@ class TemperatureController extends Controller
 
     public function index(Request $request)
     {
-        $query = TemperatureReading::with(['machine.branch'])
-            ->orderBy('recorded_at', 'desc');
+        // $query = Temperature::with(['machine.branch'])
+        //     ->orderBy('recorded_at', 'desc');
 
-        if ($request->has('machine_id') && $request->machine_id) {
-            $query->where('machine_id', $request->machine_id);
-        }
+        // if ($request->has('machine_id') && $request->machine_id) {
+        //     $query->where('machine_id', $request->machine_id);
+        // }
 
-        if ($request->has('date_from') && $request->date_from) {
-            $query->where('recorded_at', '>=', $request->date_from);
-        }
+        // if ($request->has('date_from') && $request->date_from) {
+        //     $query->where('recorded_at', '>=', $request->date_from);
+        // }
 
-        if ($request->has('date_to') && $request->date_to) {
-            $query->where('recorded_at', '<=', $request->date_to . ' 23:59:59');
-        }
+        // if ($request->has('date_to') && $request->date_to) {
+        //     $query->where('recorded_at', '<=', $request->date_to . ' 23:59:59');
+        // }
 
-        $readings = $query->paginate(50);
+        // $readings = $query->paginate(50);
+        $readings = Temperature::get();
         $machines = Machine::with('branch')->where('is_active', true)->get();
 
-        return view('layouts.temperature.index', compact('readings', 'machines'));
+        // return view('layouts.temperature.index', compact('readings', 'machines'));
+        return view('layouts.temperature.index', compact('readings','machines'));
     }
 
     public function create()
@@ -139,6 +142,46 @@ class TemperatureController extends Controller
                 Storage::disk('public')->delete($path);
             }
 
+            return response()->json([
+                'success' => false,
+                'message' => 'Error processing PDF: ' . $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function uploadPdfPy(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf|max:10240',
+            'machine_id' => 'required|exists:machines,id'
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $response = Http::attach(
+                'file',
+                file_get_contents($file->getRealPath()),
+                $file->getClientOriginalName()
+                    )->post('http://127.0.0.1:5000/upload', [
+                        'machine_id' => $request->machine_id
+                    ]);
+            if ($response->failed()) {
+                return response()->json(['error' => 'Gagal menghubungi Python API'], 500);
+            }
+
+            // Ambil hasil JSON dari Python
+            $data = $response->json();
+            
+            foreach ($data['temperature_data'] as $item) {
+                Temperature::create([
+                    'machine_id' => $item['machine_id'] ?? null,
+                    'temperature_value' => $item['temperature'] ?? null,
+                    'timestamp' => $item['timestamp'] ?? null,
+                ]);
+            }
+            dd($data);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error processing PDF: ' . $e->getMessage()
