@@ -12,8 +12,9 @@ use App\Services\AnomalyDetectionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
+use Carbon\Carbon;
+
 class TemperatureController extends Controller
 {
     protected $pdfService;
@@ -30,29 +31,64 @@ class TemperatureController extends Controller
         $this->anomalyService = $anomalyService;
     }
 
+    /**
+     * Tampilkan daftar pembacaan suhu
+     */
     public function index(Request $request)
     {
-        // $query = Temperature::with(['machine.branch'])
-        //     ->orderBy('recorded_at', 'desc');
+        $query = Temperature::with(['machine.branch'])
+            ->orderBy('reading_date', 'desc')
+            ->orderBy('reading_time', 'desc');
 
-        // if ($request->has('machine_id') && $request->machine_id) {
-        //     $query->where('machine_id', $request->machine_id);
-        // }
+        if ($request->filled('machine_id')) {
+            $query->where('machine_id', $request->machine_id);
+        }
 
-        // if ($request->has('date_from') && $request->date_from) {
-        //     $query->where('recorded_at', '>=', $request->date_from);
-        // }
+        if ($request->filled('date_from')) {
+            $query->where('reading_date', '>=', $request->date_from);
+        }
 
-        // if ($request->has('date_to') && $request->date_to) {
-        //     $query->where('recorded_at', '<=', $request->date_to . ' 23:59:59');
-        // }
+        if ($request->filled('date_to')) {
+            $query->where('reading_date', '<=', $request->date_to);
+        }
 
-        // $readings = $query->paginate(50);
-        $readings = Temperature::get();
+        if ($request->filled('validation_status')) {
+            $query->where('validation_status', $request->validation_status);
+        }
+
+        // Tampilan detail atau grouped
+        if ($request->view === 'detailed') {
+            $readings = $query->paginate(50);
+            $machines = Machine::with('branch')->where('is_active', true)->get();
+            return view('layouts.temperature.detailed', compact('readings', 'machines'));
+        }
+
+        $readings = $query->get();
+        $groupedReadings = $readings->groupBy('reading_date');
         $machines = Machine::with('branch')->where('is_active', true)->get();
+        $trendReadings = $readings;
+        return view('layouts.temperature.index', compact('readings', 'groupedReadings', 'machines', 'trendReadings'));
+    }
 
-        // return view('layouts.temperature.index', compact('readings', 'machines'));
-        return view('layouts.temperature.index', compact('readings','machines'));
+    /**
+     * Tampilkan data berdasarkan tanggal
+     */
+    public function showDate($date)
+    {
+        $readings = Temperature::with(['machine.branch'])
+            ->where('reading_date', $date)
+            ->orderBy('reading_time')
+            ->get();
+
+        $groupedByMachine = $readings->groupBy('machine_id');
+
+        $chartData = $readings->map(fn($r) => [
+            'time' => $r->reading_time,
+            'temperature' => $r->temperature_value,
+            'machine' => optional($r->machine)->name ?? 'Unknown Machine',
+        ]);
+
+        return view('layouts.temperature.date-detail', compact('readings', 'groupedByMachine', 'chartData', 'date'));
     }
 
     public function create()
@@ -61,94 +97,34 @@ class TemperatureController extends Controller
         return view('layouts.temperature.create', compact('machines'));
     }
 
+    /**
+     * Simpan data manual
+     */
     public function store(Request $request)
     {
-        $request->validate([
+        $data = $request->validate([
             'machine_id' => 'required|exists:machines,id',
-            'recorded_at' => 'required|date',
-            'temperature' => 'required|numeric',
-            'reading_type' => 'required|in:automatic,manual,imported'
+            'temperature_value' => 'required|numeric',
+            'timestamp' => 'required|date',
         ]);
 
-        $reading = TemperatureReading::create([
-            'machine_id' => $request->machine_id,
-            'recorded_at' => $request->recorded_at,
-            'temperature' => $request->temperature,
-            'reading_type' => $request->reading_type,
-            'metadata' => $request->metadata ? json_decode($request->metadata, true) : null
+        $timestamp = Carbon::parse($data['timestamp']);
+
+        Temperature::create([
+            'machine_id' => $data['machine_id'],
+            'temperature_value' => $data['temperature_value'],
+            'timestamp' => $timestamp,
+            'reading_date' => $timestamp->format('Y-m-d'),
+            'reading_time' => $timestamp->format('H:i:s'),
+            'validation_status' => 'manual_entry',
         ]);
 
-        // Check for anomalies
-        $this->anomalyService->checkSingleReading($reading);
-
-        // Update monthly summary
-        $this->updateMonthlySummary($reading);
-
-        return redirect()->route('temperature.index')->with('success', 'Temperature reading added successfully.');
+        return response()->json(['message' => 'Data suhu berhasil disimpan']);
     }
 
-    public function uploadPdf(Request $request)
-    {
-        $request->validate([
-            'pdf_file' => 'required|file|mimes:pdf|max:10240',
-            'machine_id' => 'required|exists:machines,id'
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            // Store the PDF file
-            $path = $request->file('pdf_file')->store('pdf_uploads', 'public');
-
-            // Process PDF and extract temperature data
-            $temperatureData = $this->pdfService->extractTemperatureData(storage_path('app/public/' . $path));
-
-            if (empty($temperatureData)) {
-                throw new \Exception('No temperature data found in the PDF file.');
-            }
-
-            // Import the data
-            $importedCount = $this->importService->importTemperatureData(
-                $temperatureData,
-                $request->machine_id,
-                'imported',
-                basename($path)
-            );
-
-            // Run anomaly detection on imported data
-            $machine = Machine::findOrFail($request->machine_id);
-            $this->anomalyService->checkMachineAnomalies($machine, Carbon::now()->subDays(7));
-
-            // Update monthly summaries
-            $this->updateMonthlySummariesForMachine($machine);
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => "Successfully imported {$importedCount} temperature readings.",
-                'data' => [
-                    'imported_count' => $importedCount,
-                    'file_name' => basename($path),
-                    'machine_id' => $request->machine_id
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollback();
-
-            // Clean up uploaded file if exists
-            if (isset($path)) {
-                Storage::disk('public')->delete($path);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error processing PDF: ' . $e->getMessage()
-            ], 400);
-        }
-    }
-
+    /**
+     * Upload dan proses PDF via Python
+     */
     public function uploadPdfPy(Request $request)
     {
         $request->validate([
@@ -162,25 +138,37 @@ class TemperatureController extends Controller
                 'file',
                 file_get_contents($file->getRealPath()),
                 $file->getClientOriginalName()
-                    )->post('http://127.0.0.1:5000/upload', [
-                        'machine_id' => $request->machine_id
-                    ]);
+            )->post('http://127.0.0.1:5000/upload', [
+                'machine_id' => $request->machine_id
+            ]);
+
             if ($response->failed()) {
                 return response()->json(['error' => 'Gagal menghubungi Python API'], 500);
             }
 
-            // Ambil hasil JSON dari Python
             $data = $response->json();
-            
+            $importedCount = 0;
+
             foreach ($data['temperature_data'] as $item) {
                 Temperature::create([
-                    'machine_id' => $item['machine_id'] ?? null,
+                    'machine_id' => $item['machine_id'] ?? $request->machine_id,
                     'temperature_value' => $item['temperature'] ?? null,
-                    'timestamp' => $item['timestamp'] ?? null,
+                    'timestamp' => $item['timestamp'] ?? now(),
+                    'reading_date' => Carbon::parse($item['timestamp'])->format('Y-m-d'),
+                    'reading_time' => Carbon::parse($item['timestamp'])->format('H:i:s'),
+                    'validation_status' => 'pending', // Default status untuk data import
                 ]);
+                $importedCount++;
             }
-            dd($data);
 
+            $machine = Machine::findOrFail($request->machine_id);
+            $this->anomalyService->checkMachineAnomalies($machine, Carbon::now()->subDays(7));
+            $this->updateMonthlySummariesForMachine($machine);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Imported {$importedCount} readings successfully."
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -189,163 +177,145 @@ class TemperatureController extends Controller
         }
     }
 
-    public function uploadExcel(Request $request)
-    {
-        $request->validate([
-            'excel_file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
-            'machine_id' => 'required|exists:machines,id'
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            // Store the Excel file
-            $path = $request->file('excel_file')->store('excel_uploads', 'public');
-
-            // Process Excel and extract temperature data
-            $temperatureData = $this->importService->processExcelFile(storage_path('app/public/' . $path));
-
-            if (empty($temperatureData)) {
-                throw new \Exception('No temperature data found in the Excel file.');
-            }
-
-            // Import the data
-            $importedCount = $this->importService->importTemperatureData(
-                $temperatureData,
-                $request->machine_id,
-                'imported',
-                basename($path)
-            );
-
-            // Run anomaly detection on imported data
-            $machine = Machine::findOrFail($request->machine_id);
-            $this->anomalyService->checkMachineAnomalies($machine, Carbon::now()->subDays(7));
-
-            // Update monthly summaries
-            $this->updateMonthlySummariesForMachine($machine);
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => "Successfully imported {$importedCount} temperature readings.",
-                'data' => [
-                    'imported_count' => $importedCount,
-                    'file_name' => basename($path),
-                    'machine_id' => $request->machine_id
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollback();
-
-            // Clean up uploaded file if exists
-            if (isset($path)) {
-                Storage::disk('public')->delete($path);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error processing Excel file: ' . $e->getMessage()
-            ], 400);
-        }
-    }
-
+    /**
+     * Export PDF report
+     */
     public function exportPdf(Request $request)
     {
         $filters = $request->only(['machine_id', 'date_from', 'date_to']);
-
         $pdf = $this->pdfService->generateTemperatureReport($filters);
-
         $filename = 'temperature_report_' . now()->format('Y-m-d_H-i-s') . '.pdf';
-
         return $pdf->download($filename);
     }
 
     public function show($id)
     {
-        $reading = TemperatureReading::with(['machine.branch', 'anomalies'])
-            ->findOrFail($id);
+        $temperature = Temperature::with(['machine.branch'])->findOrFail($id);
 
-        // Get nearby readings for context
-        $nearbyReadings = TemperatureReading::where('machine_id', $reading->machine_id)
-            ->where('recorded_at', '>=', $reading->recorded_at->subHours(2))
-            ->where('recorded_at', '<=', $reading->recorded_at->addHours(2))
-            ->where('id', '!=', $reading->id)
-            ->orderBy('recorded_at')
+        $nearbyReadings = Temperature::where('machine_id', $temperature->machine_id)
+            ->where('reading_date', $temperature->reading_date)
+            ->where('id', '!=', $temperature->id)
+            ->orderBy('reading_time')
             ->get();
 
-        return view('temperature.show', compact('reading', 'nearbyReadings'));
+        $chartData = Temperature::where('machine_id', $temperature->machine_id)
+            ->where('reading_date', $temperature->reading_date)
+            ->orderBy('reading_time')
+            ->get()
+            ->map(fn($r) => [
+                'time' => $r->reading_time,
+                'temperature' => $r->temperature_value,
+                'is_current' => $r->id === $temperature->id
+            ]);
+
+        return view('layouts.temperature.show', compact('temperature', 'nearbyReadings', 'chartData'));
     }
 
     public function edit($id)
     {
-        $reading = TemperatureReading::with(['machine.branch'])->findOrFail($id);
-
-        // Only allow editing of manual readings
-        if ($reading->reading_type !== 'manual') {
-            return redirect()->route('temperature.show', $reading)
-                ->with('error', 'Only manual readings can be edited.');
-        }
-
+        $temperature = Temperature::with(['machine.branch'])->findOrFail($id);
         $machines = Machine::with('branch')->where('is_active', true)->get();
 
-        return view('temperature.edit', compact('reading', 'machines'));
+        // Validation status options
+        $validationStatusOptions = [
+            'pending' => 'Pending',
+            'validated' => 'Validated',
+            'rejected' => 'Rejected',
+            'needs_review' => 'Needs Review',
+            'manual_entry' => 'Manual Entry',
+            'imported' => 'Imported',
+            'edited' => 'Edited',
+        ];
+
+        return view('layouts.temperature.edit', compact(
+            'temperature',
+            'machines',
+            'validationStatusOptions'
+        ));
     }
 
     public function update(Request $request, $id)
     {
-        $reading = TemperatureReading::findOrFail($id);
-
-        // Only allow editing of manual readings
-        if ($reading->reading_type !== 'manual') {
-            return redirect()->route('temperature.show', $reading)
-                ->with('error', 'Only manual readings can be edited.');
+        $isValidated = null;
+        if ($request->validation_status === 'validated') {
+            $isValidated = 1;
+        } elseif ($request->validation_status === 'rejected') {
+            $isValidated = 0;
+        } else {
+            $isValidated = null; // needs_review, manual_entry, imported, edited
         }
+        $temperature = Temperature::findOrFail($id);
 
         $request->validate([
             'machine_id' => 'required|exists:machines,id',
-            'recorded_at' => 'required|date',
-            'temperature' => 'required|numeric',
-            'reading_type' => 'required|in:automatic,manual,imported'
+            'timestamp' => 'required|date',
+            'temperature_value' => 'required|numeric',
+            'validation_status' => 'required|in:pending,validated,rejected,needs_review,manual_entry,imported,edited'
         ]);
 
-        $reading->update([
+        $timestamp = Carbon::parse($request->timestamp);
+
+        $temperature->update([
             'machine_id' => $request->machine_id,
-            'recorded_at' => $request->recorded_at,
-            'temperature' => $request->temperature,
-            'reading_type' => $request->reading_type,
-            'metadata' => $request->metadata ? json_decode($request->metadata, true) : null
+            'temperature_value' => $request->temperature_value,
+            'timestamp' => $timestamp,
+            'reading_date' => $timestamp->format('Y-m-d'),
+            'reading_time' => $timestamp->format('H:i:s'),
+            'validation_status' => $request->validation_status,
+            'validation_notes' => $request->validation_notes,
+              'is_validated' => $isValidated // Tambahkan ini
+
         ]);
 
-        // Re-check for anomalies
-        $this->anomalyService->checkSingleReading($reading);
+        // Cek anomaly untuk pembacaan ini
+        // $this->anomalyService->checkSingleReading($temperature);
 
-        // Update monthly summary
-        $this->updateMonthlySummary($reading);
+        // Update summary bulanan
+        $this->updateMonthlySummary($temperature);
 
-        return redirect()->route('temperature.show', $reading)
+        return redirect()->route('temperature.show', $temperature->id)
             ->with('success', 'Temperature reading updated successfully.');
     }
 
     public function destroy($id)
     {
-        $reading = TemperatureReading::findOrFail($id);
-        $machineId = $reading->machine_id;
+        $temperature = Temperature::findOrFail($id);
+        $date = $temperature->reading_date;
+        $machine = Machine::find($temperature->machine_id);
+        $temperature->delete();
 
-        $reading->delete();
+        if ($machine) {
+            $this->updateMonthlySummariesForMachine($machine);
+        }
 
-        // Update monthly summary after deletion
-        $this->updateMonthlySummariesForMachine(Machine::find($machineId));
-
-        return redirect()->route('temperature.index')
+        return redirect()->route('temperature.show-date', $date)
             ->with('success', 'Temperature reading deleted successfully.');
     }
 
+    /**
+     * Generate data untuk chart AJAX
+     */
+    public function getChartData(Request $request)
+    {
+        $readings = Temperature::where('machine_id', $request->machine_id)
+            ->where('reading_date', $request->date)
+            ->orderBy('reading_time')
+            ->get();
+
+        return response()->json($readings->map(fn($r) => [
+            'time' => $r->reading_time,
+            'temperature' => $r->temperature_value,
+            'timestamp' => $r->timestamp->format('Y-m-d H:i:s')
+        ]));
+    }
+
+    /* ==============================
+     * Helper untuk rekap bulanan
+     * ============================== */
     private function updateMonthlySummary($reading)
     {
-        $year = $reading->recorded_at->year;
-        $month = $reading->recorded_at->month;
+        $year = $reading->timestamp->year;
+        $month = $reading->timestamp->month;
 
         $summary = MonthlySummary::firstOrCreate([
             'machine_id' => $reading->machine_id,
@@ -353,28 +323,25 @@ class TemperatureController extends Controller
             'month' => $month
         ]);
 
-        // Recalculate summary data
-        $monthlyReadings = TemperatureReading::where('machine_id', $reading->machine_id)
-            ->whereYear('recorded_at', $year)
-            ->whereMonth('recorded_at', $month)
+        $monthlyReadings = Temperature::where('machine_id', $reading->machine_id)
+            ->whereYear('timestamp', $year)
+            ->whereMonth('timestamp', $month)
             ->get();
 
         if ($monthlyReadings->isNotEmpty()) {
             $summary->update([
-                'temp_avg' => $monthlyReadings->avg('temperature'),
-                'temp_min' => $monthlyReadings->min('temperature'),
-                'temp_max' => $monthlyReadings->max('temperature'),
-                'total_readings' => $monthlyReadings->count(),
-                'anomaly_count' => $monthlyReadings->where('is_anomaly', true)->count(),
+                'temp_avg' => $monthlyReadings->avg('temperature_value'),
+                'temp_min' => $monthlyReadings->min('temperature_value'),
+                'temp_max' => $monthlyReadings->max('temperature_value'),
+                'total_readings' => $monthlyReadings->count()
             ]);
         }
     }
 
     private function updateMonthlySummariesForMachine($machine)
     {
-        // Get all months that have readings for this machine
-        $monthlyData = TemperatureReading::where('machine_id', $machine->id)
-            ->selectRaw('YEAR(recorded_at) as year, MONTH(recorded_at) as month')
+        $monthlyData = Temperature::where('machine_id', $machine->id)
+            ->selectRaw('YEAR(timestamp) as year, MONTH(timestamp) as month')
             ->groupBy('year', 'month')
             ->get();
 
@@ -385,19 +352,17 @@ class TemperatureController extends Controller
                 'month' => $data->month
             ]);
 
-            // Recalculate summary data
-            $monthlyReadings = TemperatureReading::where('machine_id', $machine->id)
-                ->whereYear('recorded_at', $data->year)
-                ->whereMonth('recorded_at', $data->month)
+            $monthlyReadings = Temperature::where('machine_id', $machine->id)
+                ->whereYear('timestamp', $data->year)
+                ->whereMonth('timestamp', $data->month)
                 ->get();
 
             if ($monthlyReadings->isNotEmpty()) {
                 $summary->update([
-                    'temp_avg' => $monthlyReadings->avg('temperature'),
-                    'temp_min' => $monthlyReadings->min('temperature'),
-                    'temp_max' => $monthlyReadings->max('temperature'),
-                    'total_readings' => $monthlyReadings->count(),
-                    'anomaly_count' => $monthlyReadings->where('is_anomaly', true)->count(),
+                    'temp_avg' => $monthlyReadings->avg('temperature_value'),
+                    'temp_min' => $monthlyReadings->min('temperature_value'),
+                    'temp_max' => $monthlyReadings->max('temperature_value'),
+                    'total_readings' => $monthlyReadings->count()
                 ]);
             }
         }

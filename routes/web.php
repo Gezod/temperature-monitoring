@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TemperatureController;
+use App\Http\Controllers\TemperatureValidationController;
 use App\Http\Controllers\AnomalyController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\BranchController;
@@ -28,11 +29,22 @@ Route::patch('/alerts/{id}/dismiss', [DashboardController::class, 'dismissAlert'
 
 // Temperature Data Routes
 Route::resource('temperature', TemperatureController::class);
+Route::get('/temperature/date/{date}', [TemperatureController::class, 'showDate'])->name('temperature.show-date');
 Route::get('/temperature/{temperature}/edit', [TemperatureController::class, 'edit'])->name('temperature.edit');
 Route::post('/temperature/upload-pdf', [TemperatureController::class, 'uploadPdf'])->name('temperature.upload-pdf');
 Route::post('/temperature/upload-excel', [TemperatureController::class, 'uploadExcel'])->name('temperature.upload-excel');
 Route::get('/temperature/export/pdf', [TemperatureController::class, 'exportPdf'])->name('temperature.export-pdf');
 Route::post('/upload-pdf', [TemperatureController::class, 'uploadPdfPy'])->name('temperature.upload-pdf-py');
+Route::get('/temperature/chart-data/{machineId}/{date}', [TemperatureController::class, 'getChartData'])->name('temperature.chart-data');
+
+// Temperature Validation Routes
+Route::prefix('temperature/validation')->group(function () {
+    Route::get('/history', [TemperatureValidationController::class, 'getValidationHistory'])->name('temperature.validation.history');
+    Route::get('/{sessionId}/review', [TemperatureValidationController::class, 'reviewValidation'])->name('temperature.validation.review');
+    Route::patch('/{sessionId}/update', [TemperatureValidationController::class, 'updateValidationData'])->name('temperature.validation.update');
+    Route::post('/{sessionId}/import', [TemperatureValidationController::class, 'importValidatedData'])->name('temperature.validation.import');
+    Route::delete('/{sessionId}', [TemperatureValidationController::class, 'deleteValidation'])->name('temperature.validation.delete');
+});
 
 // API Routes for machine info
 Route::get('/api/machines/{machine}/info', [MachineController::class, 'apiMachineInfo'])->name('api.machine-info');
