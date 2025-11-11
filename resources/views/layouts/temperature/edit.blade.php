@@ -67,14 +67,25 @@
                                 <div class="form-group">
                                     <label for="validation_status">Validation Status *</label>
                                     <select name="validation_status" id="validation_status" class="form-control @error('validation_status') is-invalid @enderror" required>
-                                        <option value="">Select Status</option>
-                                        @foreach($validationStatusOptions as $value => $label)
-                                            <option value="{{ $value }}"
-                                                {{ old('validation_status', $temperature->validation_status) == $value ? 'selected' : '' }}>
-                                                {{ $label }}
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                            <option value="">Select Status</option>
+                                            @foreach($validationStatusOptions as $value => $label)
+                                                <option value="{{ $value }}"
+                                                    {{ 
+                                                        // Prioritas 1: Coba ambil dari session 'old' (jika validasi gagal)
+                                                        (old('validation_status') == $value) 
+                                                        
+                                                        // Prioritas 2: Jika tidak ada 'old', ambil dari objek Temperature
+                                                        || ($temperature->validation_status == $label && old('validation_status') == null) 
+                                                        
+                                                        // Jika Anda ingin MENGABAIKAN old() dan HANYA menggunakan $temperature:
+                                                        // ($temperature->validation_status == $value) 
+                                                        
+                                                        ? 'selected' : '' 
+                                                    }}>
+                                                    {{ $label }}
+                                                </option>
+                                            @endforeach
+                                        </select>
                                     @error('validation_status')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
