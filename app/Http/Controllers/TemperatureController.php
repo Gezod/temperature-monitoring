@@ -142,6 +142,7 @@ class TemperatureController extends Controller
                 'machine_id' => $request->machine_id
             ]);
 
+
             if ($response->failed()) {
                 return response()->json(['error' => 'Gagal menghubungi Python API'], 500);
             }
@@ -175,6 +176,19 @@ class TemperatureController extends Controller
                 'message' => 'Error processing PDF: ' . $e->getMessage()
             ], 400);
         }
+    }
+
+    public function validateTemperature($date){
+        $dateObject = Carbon::parse($date);
+        $Temperature = Temperature::where('reading_date',$dateObject);
+        $Temperature->update([
+            'validation_status'=>'Validated',
+            'is_validated'=>1,
+        ]);
+        return redirect('temperature/date/'.$date)->with('success', 'Data tanggal ' . $date . ' berhasil divalidasi!');
+        
+        
+
     }
 
     /**

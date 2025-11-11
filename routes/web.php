@@ -36,6 +36,8 @@ Route::post('/temperature/upload-excel', [TemperatureController::class, 'uploadE
 Route::get('/temperature/export/pdf', [TemperatureController::class, 'exportPdf'])->name('temperature.export-pdf');
 Route::post('/upload-pdf', [TemperatureController::class, 'uploadPdfPy'])->name('temperature.upload-pdf-py');
 Route::get('/temperature/chart-data/{machineId}/{date}', [TemperatureController::class, 'getChartData'])->name('temperature.chart-data');
+Route::post('/temperature/validateTemperature/{date}', [TemperatureController::class, 'validateTemperature'])->name('temperature.validate');
+
 
 // Temperature Validation Routes
 Route::prefix('temperature/validation')->group(function () {

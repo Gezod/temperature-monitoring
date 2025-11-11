@@ -81,27 +81,38 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            <small class="text-muted">({{ $machine->branch->name ?? 'No Branch' }})</small>
+                            <small class="text-white">({{ $machine->branch->name ?? 'No Branch' }})</small>
                             {{-- <small class="text-muted">({{ $machine->branch->name }})</small> --}}
                         </h5>
                         <span class="badge bg-info">{{ $machineReadings->count() }} readings</span>
                     </div>
                     <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-4 text-center">
+                        <div class="row mb-3 ">
+                            <div class="col-md-3 col-4 text-center">
                                 <h6 class="text-info mb-1">
-                                    {{ number_format($machineReadings->avg('temperature_value'), 1) }}°C</h6>
+                                    {{ number_format($machineReadings->avg('temperature_value'), 1) }}°C
+                                </h6>
                                 <small class="text-muted">Average</small>
                             </div>
-                            <div class="col-4 text-center">
+                            <div class="col-md-3 col-4 text-center">
                                 <h6 class="text-success mb-1">
-                                    {{ number_format($machineReadings->min('temperature_value'), 1) }}°C</h6>
+                                    {{ number_format($machineReadings->min('temperature_value'), 1) }}°C
+                                </h6>
                                 <small class="text-muted">Min</small>
                             </div>
-                            <div class="col-4 text-center">
+                            <div class="col-md-3 col-4 text-center">
                                 <h6 class="text-danger mb-1">
-                                    {{ number_format($machineReadings->max('temperature_value'), 1) }}°C</h6>
+                                    {{ number_format($machineReadings->max('temperature_value'), 1) }}°C
+                                </h6>
                                 <small class="text-muted">Max</small>
+                            </div>
+                            <div class="col-md-3 col-12 text-center">
+                                <form action="{{ route('temperature.validate', $date) }}" method="POST">
+                                    @csrf
+                                    <button class="btn btn-outline-success">
+                                        <i class="bi bi-check-square"></i> Validation All
+                                    </button>
+                                </form>
                             </div>
                         </div>
 
@@ -121,41 +132,39 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($machineReadings->sortBy('reading_time') as $reading)
-                                        <tr>
-                                            <td>{{ $reading->reading_time }}</td>
-                                            <td>
-                                                <strong
-                                                    class="text-{{ $machine &&
-                                                    ($reading->temperature_value < ($machine->temp_min_normal ?? 0) ||
-                                                        $reading->temperature_value > ($machine->temp_max_normal ?? 100))
-                                                        ? 'danger'
-                                                        : 'success' }}">
-                                                    {{ number_format($reading->temperature_value, 1) }}°C
-                                                </strong>
-                                            </td>
-                                            <td>
-                                                <span
-                                                    class="badge bg-{{ $reading->validation_status === 'imported' ? 'success' : ($reading->validation_status === 'pending' ? 'warning' : 'info') }}">
-                                                    {{ ucfirst($reading->validation_status) }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <div class="btn-group btn-group-sm">
-                                                    <a href="{{ route('temperature.show', $reading->id) }}"
-                                                        class="btn btn-outline-info"><i class="bi bi-eye"></i></a>
-                                                    <a href="{{ route('temperature.edit', $reading->id) }}"
-                                                        class="btn btn-outline-warning"><i class="bi bi-pencil"></i></a>
-                                                    <form method="POST"
-                                                        action="{{ route('temperature.destroy', $reading->id) }}"
-                                                        style="display:inline;" onsubmit="return confirm('Are you sure?')">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="btn btn-outline-danger"><i
-                                                                class="bi bi-trash"></i></button>
-                                                    </form>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                        <tr>
+                                                            <td>{{ $reading->reading_time }}</td>
+                                                            <td>
+                                                                <strong class="text-{{ $machine &&
+                                        ($reading->temperature_value < ($machine->temp_min_normal ?? 0) ||
+                                            $reading->temperature_value > ($machine->temp_max_normal ?? 100))
+                                        ? 'danger'
+                                        : 'success' }}">
+                                                                    {{ number_format($reading->temperature_value, 1) }}°C
+                                                                </strong>
+                                                            </td>
+                                                            <td>
+                                                                <span
+                                                                    class="badge bg-{{ $reading->validation_status === 'imported' ? 'success' : ($reading->validation_status === 'pending' ? 'warning' : 'info') }}">
+                                                                    {{ ucfirst($reading->validation_status) }}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <div class="btn-group btn-group-sm">
+                                                                    <a href="{{ route('temperature.show', $reading->id) }}"
+                                                                        class="btn btn-outline-info"><i class="bi bi-eye"></i></a>
+                                                                    <a href="{{ route('temperature.edit', $reading->id) }}"
+                                                                        class="btn btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                                                                    <form method="POST" action="{{ route('temperature.destroy', $reading->id) }}"
+                                                                        style="display:inline;" onsubmit="return confirm('Are you sure?')">
+                                                                        @csrf
+                                                                        @method('DELETE')
+                                                                        <button type="submit" class="btn btn-outline-danger"><i
+                                                                                class="bi bi-trash"></i></button>
+                                                                    </form>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
                                     @endforeach
                                 </tbody>
                             </table>
@@ -172,6 +181,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script>
+
         let mainChart;
         let currentChartType = 'line';
 
@@ -193,7 +203,7 @@
             return machineColors[machine];
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Main chart
             const ctx = document.getElementById('temperatureChart').getContext('2d');
             const chartData = @json($chartData);
@@ -276,10 +286,10 @@
                             data: data{{ $machineId }}.map(d => d.temperature),
                             borderColor: getColor(
                                 '{{ $machineReadings->first()->machine->name ?? 'Unknown Machine' }}'
-                                ),
+                            ),
                             backgroundColor: getColor(
                                 '{{ $machineReadings->first()->machine->name ?? 'Unknown Machine' }}'
-                                ).replace('1)', '0.1)'),
+                            ).replace('1)', '0.1)'),
                             tension: 0.4,
                             fill: true,
                             pointRadius: 2,
@@ -314,7 +324,7 @@
                     }
                 });
             @endforeach
-        });
+                        });
 
         function toggleChartType() {
             currentChartType = currentChartType === 'line' ? 'bar' : 'line';
