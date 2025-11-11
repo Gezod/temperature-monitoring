@@ -2,50 +2,66 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Temperature Monitoring System')</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@yield('title','Temperature Monitoring System')</title>
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Custom CSS -->
-    <style>
-        :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --secondary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            --danger-gradient: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-            --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-        }
+  <style>
+    body{font-family:'Segoe UI',sans-serif;background:#f5f7fa;overflow-x:hidden;}
+    .navbar{background:linear-gradient(135deg,#667eea,#764ba2);}
+    .navbar-brand{font-weight:700;color:#fff!important;}
 
+<<<<<<< HEAD
         .navbar {
             background: var(--primary-gradient);
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
+=======
+    /* === Sidebar === */
+    .sidebar{
+      position:fixed;
+      top:70px;
+      left:0;
+      width:250px;
+      height:calc(100vh - 70px);
+      background:rgba(255,255,255,.95);
+      box-shadow:4px 0 20px rgba(0,0,0,.1);
+      border-radius:0 20px 20px 0;
+      transition:transform .3s ease;
+      z-index:1000;
+      padding:15px;
+    }
+    .sidebar.collapsed{transform:translateX(-260px);}
+    .sidebar .nav-link{color:#495057;border-radius:10px;padding:12px 16px;transition:.3s;}
+    .sidebar .nav-link:hover{background:#f3f3ff;color:#667eea;}
+    .sidebar .nav-link.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-weight:600;}
+>>>>>>> fa37243 (Update sidebar toggle  commit by Sikki)
 
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.5rem;
-        }
+    /* === Main === */
+    .main-content{
+      margin-left:260px;
+      padding:30px;
+      transition:margin-left .3s ease;
+    }
+    .main-content.expanded{margin-left:0;}
 
-        .nav-link {
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
+    /* === Toggle btn === */
+    #sidebarToggle{
+      background:#fff;
+      border:none;
+      border-radius:8px;
+      font-size:1.3rem;
+      padding:5px 10px;
+      margin-right:10px;
+    }
 
-        .nav-link:hover {
-            transform: translateY(-2px);
-        }
+    /* Overlay for mobile */
+    .overlay{position:fixed;top:70px;left:0;width:100%;height:calc(100vh - 70px);
+      background:rgba(0,0,0,.5);display:none;z-index:900;}
+    .overlay.active{display:block;}
 
         .sidebar {
             background: rgba(255, 255, 255, 0.95);
@@ -254,15 +270,17 @@
     </style>
 
     @stack('styles')
+
+    @media(max-width:992px){
+      .sidebar{transform:translateX(-260px);}
+      .sidebar.show{transform:translateX(0);}
+      .main-content{margin-left:0;}
+    }
+  </style>
+
 </head>
 
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ route('dashboard') }}">
-                <i class="bi bi-thermometer-snow"></i> Temperature Monitor
-            </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -381,10 +399,21 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center">
+      <button id="sidebarToggle"><i class="bi bi-list"></i></button>
+      <a class="navbar-brand" href="{{route('dashboard')}}">
+        <i class="bi bi-thermometer-snow"></i> Temperature Monitor
+      </a>
+
+    </div>
+    <a class="nav-link text-white" href="{{route('profile')}}"><i class="bi bi-person"></i> Profile</a>
+  </div>
+</nav>
+
+<div class="overlay" id="overlay"></div>
 
     <!-- Global JavaScript -->
     <script>
@@ -404,41 +433,47 @@
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
 
-            startAutoRefresh();
-            loadAlerts();
-        });
+<!-- Sidebar di luar grid -->
+<div class="sidebar" id="sidebar">
+  <ul class="nav flex-column">
+    <li><a class="nav-link {{request()->routeIs('dashboard')?'active':''}}" href="{{route('dashboard')}}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+    <li><a class="nav-link {{request()->routeIs('temperature.*')?'active':''}}" href="{{route('temperature.index')}}"><i class="bi bi-thermometer"></i> Temperature Data</a></li>
+    <li><a class="nav-link {{request()->routeIs('analytics')?'active':''}}" href="{{route('analytics')}}"><i class="bi bi-graph-up"></i> Analytics</a></li>
+    <li><a class="nav-link {{request()->routeIs('anomalies.*')?'active':''}}" href="{{route('anomalies.index')}}"><i class="bi bi-exclamation-triangle"></i> Anomalies</a></li>
+    <li><a class="nav-link {{request()->routeIs('maintenance.*')?'active':''}}" href="{{route('maintenance.index')}}"><i class="bi bi-tools"></i> Maintenance</a></li>
+    <li><a class="nav-link {{request()->routeIs('branch-comparison')?'active':''}}" href="{{route('branch-comparison')}}"><i class="bi bi-bar-chart"></i> Branch Comparison</a></li>
+    <li><a class="nav-link {{request()->routeIs('machines.*')?'active':''}}" href="{{route('machines.index')}}"><i class="bi bi-cpu"></i> Machines</a></li>
+    <li><a class="nav-link {{request()->routeIs('branches.*')?'active':''}}" href="{{route('branches.index')}}"><i class="bi bi-building"></i> Branches</a></li>
+  </ul>
+</div>
 
-        // Load system alerts
-        function loadAlerts() {
-            // Implementation would fetch alerts via AJAX
-            // For now, simulated
-        }
+<!-- Main di luar grid -->
+<div class="main-content" id="mainContent">
+  @yield('content')
+</div>
+>>>>>>> fa37243 (Update sidebar toggle  commit by Sikki)
 
-        // Temperature status helper
-        function getTemperatureStatus(temp, minNormal, maxNormal, minCritical, maxCritical) {
-            if (temp < minCritical || temp > maxCritical) return 'critical';
-            if (temp < minNormal || temp > maxNormal) return 'warning';
-            return 'normal';
-        }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const sidebar=document.getElementById("sidebar");
+const main=document.getElementById("mainContent");
+const btn=document.getElementById("sidebarToggle");
+const overlay=document.getElementById("overlay");
 
-        // Format temperature display
-        function formatTemperature(temp) {
-            return parseFloat(temp).toFixed(1) + '°C';
-        }
-
-        // Download functionality
-        function downloadChart(chartId, filename) {
-            const canvas = document.getElementById(chartId);
-            if (canvas) {
-                const link = document.createElement('a');
-                link.download = filename + '_' + new Date().toISOString().slice(0, 10) + '.png';
-                link.href = canvas.toDataURL();
-                link.click();
-            }
-        }
-    </script>
-
-    @stack('scripts')
+btn.onclick=function(){
+  if(window.innerWidth<992){
+    sidebar.classList.toggle("show");
+    overlay.classList.toggle("active");
+  }else{
+    sidebar.classList.toggle("collapsed");
+    main.classList.toggle("expanded");
+  }
+}
+overlay.onclick=function(){
+  sidebar.classList.remove("show");
+  overlay.classList.remove("active");
+};
+</script>
 </body>
 
 </html>
