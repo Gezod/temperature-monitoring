@@ -186,8 +186,8 @@ class TemperatureController extends Controller
             'is_validated'=>1,
         ]);
         return redirect('temperature/date/'.$date)->with('success', 'Data tanggal ' . $date . ' berhasil divalidasi!');
-        
-        
+
+
 
     }
 

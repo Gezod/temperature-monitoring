@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\Machine;
 use App\Models\TemperatureReading;
+use App\Models\Temperature;
 use App\Models\Anomaly;
 use App\Models\MaintenanceRecommendation;
 use App\Models\SystemAlert;
@@ -12,6 +13,7 @@ use App\Services\AnalyticsService;
 use App\Services\AnomalyDetectionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -36,30 +38,52 @@ class DashboardController extends Controller
             'critical_alerts' => SystemAlert::active()->where('level', 'critical')->count()
         ];
 
-        // Recent temperature readings with status
-        $recentReadings = TemperatureReading::with(['machine.branch'])
-            ->latest('recorded_at')
+        // Recent temperature readings with status - Use Temperature model
+        $recentReadings = Temperature::with(['machine.branch'])
+            ->latest('timestamp')
             ->limit(10)
             ->get()
             ->map(function ($reading) {
+                $machine = $reading->machine;
+                $temp = $reading->temperature_value;
+                $status = 'normal';
+
+                if ($machine) {
+                    if ($temp < $machine->temp_critical_min || $temp > $machine->temp_critical_max) {
+                        $status = 'critical';
+                    } elseif ($temp < $machine->temp_min_normal || $temp > $machine->temp_max_normal) {
+                        $status = 'warning';
+                    }
+                }
+
                 return [
                     'id' => $reading->id,
-                    'machine' => $reading->machine->name,
-                    'branch' => $reading->machine->branch->name,
-                    'temperature' => $reading->temperature,
-                    'recorded_at' => $reading->recorded_at,
-                    'status' => $reading->status
+                    'machine' => $machine->name ?? 'Unknown',
+                    'branch' => $machine->branch->name ?? 'Unknown',
+                    'temperature' => $temp,
+                    'recorded_at' => $reading->timestamp,
+                    'status' => $status
                 ];
             });
 
         // Branch performance summary
         $branchPerformance = $this->analyticsService->getBranchPerformanceSummary();
 
-        // Temperature trends (last 30 days)
-        $temperatureTrends = $this->analyticsService->getTemperatureTrends(30);
+        // Temperature trends (last 30 days) - Use Temperature model
+        $temperatureTrends = Temperature::select(
+            DB::raw('DATE(timestamp) as date'),
+            DB::raw('AVG(temperature_value) as avg_temperature'),
+            DB::raw('MIN(temperature_value) as min_temperature'),
+            DB::raw('MAX(temperature_value) as max_temperature'),
+            DB::raw('COUNT(*) as reading_count')
+        )
+            ->where('timestamp', '>=', now()->subDays(30))
+            ->groupBy(DB::raw('DATE(timestamp)'))
+            ->orderBy('date')
+            ->get();
 
         // Active anomalies
-        $activeAnomalies = Anomaly::with(['machine.branch', 'temperatureReading'])
+        $activeAnomalies = Anomaly::with(['machine.branch'])
             ->whereIn('status', ['new', 'acknowledged', 'investigating'])
             ->orderBy('detected_at', 'desc')
             ->limit(5)
@@ -76,7 +100,7 @@ class DashboardController extends Controller
 
         // System alerts
         $systemAlerts = SystemAlert::active()
-            ->unread()
+            ->where('is_read', false)
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
@@ -93,21 +117,25 @@ class DashboardController extends Controller
     }
 
     public function analytics(Request $request)
-    {
-        $filters = $request->only(['branch_id', 'machine_id', 'date_from', 'date_to']);
+{
+    $filters = $request->only(['branch_id', 'machine_id', 'date_from', 'date_to', 'chart_type']);
 
-        // Get filtered data
+    $filters['date_from'] = $filters['date_from'] ?? now()->subDays(30)->format('Y-m-d');
+    $filters['date_to'] = $filters['date_to'] ?? now()->format('Y-m-d');
+
+    try {
+        // Get analytics data
         $analyticsData = $this->analyticsService->getAdvancedAnalytics($filters);
-
-        // Seasonal analysis
         $seasonalAnalysis = $this->analyticsService->getSeasonalAnalysis($filters);
-
-        // Performance comparison
         $performanceComparison = $this->analyticsService->getBranchComparison($filters);
 
         // Branches and machines for filters
         $branches = Branch::where('is_active', true)->get();
         $machines = Machine::where('is_active', true)->with('branch')->get();
+
+        // DEBUG: Log untuk memastikan data ada
+        Log::info('Analytics Data Count: ' . $analyticsData->count());
+        Log::info('First analytics item: ' . json_encode($analyticsData->first()));
 
         return view('layouts.dashboard.analytics', compact(
             'analyticsData',
@@ -117,11 +145,24 @@ class DashboardController extends Controller
             'machines',
             'filters'
         ));
+
+    } catch (\Exception $e) {
+        Log::error('Analytics Error: ' . $e->getMessage());
+
+        $branches = Branch::where('is_active', true)->get();
+        $machines = Machine::where('is_active', true)->with('branch')->get();
+
+        return view('layouts.dashboard.analytics', compact(
+            'branches',
+            'machines',
+            'filters'
+        ))->with('error', 'Error loading analytics data: ' . $e->getMessage());
     }
+}
 
     public function anomalies()
     {
-        $anomalies = Anomaly::with(['machine.branch', 'temperatureReading'])
+        $anomalies = Anomaly::with(['machine.branch'])
             ->orderBy('detected_at', 'desc')
             ->paginate(20);
 
@@ -166,7 +207,7 @@ class DashboardController extends Controller
 
     public function branchComparison()
     {
-        $branches = Branch::with(['machines', 'monthlySummaries' => function($query) {
+        $branches = Branch::with(['machines', 'monthlySummaries' => function ($query) {
             $query->where('year', now()->year);
         }])->where('is_active', true)->get();
 

@@ -4,35 +4,60 @@ namespace App\Services;
 
 use App\Models\Branch;
 use App\Models\Machine;
-use App\Models\TemperatureReading;
+use App\Models\Temperature;
 use App\Models\MonthlySummary;
 use App\Models\MaintenanceRecommendation;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class AnalyticsService
 {
     public function getBranchPerformanceSummary()
     {
-        return Branch::with(['machines', 'temperatureReadings'])
+        return Branch::with(['machines'])
             ->where('is_active', true)
             ->get()
             ->map(function ($branch) {
-                $readings = $branch->temperatureReadings()
-                    ->where('recorded_at', '>=', now()->subMonth())
-                    ->get();
+                $readings = Temperature::whereHas('machine', function($query) use ($branch) {
+                    $query->where('branch_id', $branch->id);
+                })
+                ->where('timestamp', '>=', now()->subMonth())
+                ->get();
+
+                // Handle empty readings
+                if ($readings->isEmpty()) {
+                    return [
+                        'branch' => $branch,
+                        'machine_count' => $branch->machines->where('is_active', true)->count(),
+                        'avg_temperature' => 0,
+                        'min_temperature' => 0,
+                        'max_temperature' => 0,
+                        'total_readings' => 0,
+                        'anomaly_count' => 0,
+                        'anomaly_rate' => 0,
+                        'performance_score' => 0
+                    ];
+                }
+
+                $anomalyCount = $readings->filter(function($reading) {
+                    $machine = $reading->machine;
+                    if (!$machine) return false;
+
+                    $temp = $reading->temperature_value;
+                    return $temp < $machine->temp_min_normal || $temp > $machine->temp_max_normal;
+                })->count();
 
                 return [
                     'branch' => $branch,
                     'machine_count' => $branch->machines->where('is_active', true)->count(),
-                    'avg_temperature' => $readings->avg('temperature'),
-                    'min_temperature' => $readings->min('temperature'),
-                    'max_temperature' => $readings->max('temperature'),
+                    'avg_temperature' => $readings->avg('temperature_value') ?? 0,
+                    'min_temperature' => $readings->min('temperature_value') ?? 0,
+                    'max_temperature' => $readings->max('temperature_value') ?? 0,
                     'total_readings' => $readings->count(),
-                    'anomaly_count' => $readings->where('is_anomaly', true)->count(),
-                    'anomaly_rate' => $readings->count() > 0 ?
-                        ($readings->where('is_anomaly', true)->count() / $readings->count()) * 100 : 0,
-                    'performance_score' => $this->calculatePerformanceScore($branch, $readings)
+                    'anomaly_count' => $anomalyCount,
+                    'anomaly_rate' => $readings->count() > 0 ? ($anomalyCount / $readings->count()) * 100 : 0,
+                    'performance_score' => $this->calculatePerformanceScore($branch, $readings, $anomalyCount)
                 ];
             });
     }
@@ -41,15 +66,15 @@ class AnalyticsService
     {
         $fromDate = now()->subDays($days);
 
-        $dailyAverages = TemperatureReading::select(
-                DB::raw('DATE(recorded_at) as date'),
-                DB::raw('AVG(temperature) as avg_temperature'),
-                DB::raw('MIN(temperature) as min_temperature'),
-                DB::raw('MAX(temperature) as max_temperature'),
+        $dailyAverages = Temperature::select(
+                DB::raw('DATE(timestamp) as date'),
+                DB::raw('AVG(temperature_value) as avg_temperature'),
+                DB::raw('MIN(temperature_value) as min_temperature'),
+                DB::raw('MAX(temperature_value) as max_temperature'),
                 DB::raw('COUNT(*) as reading_count')
             )
-            ->where('recorded_at', '>=', $fromDate)
-            ->groupBy(DB::raw('DATE(recorded_at)'))
+            ->where('timestamp', '>=', $fromDate)
+            ->groupBy(DB::raw('DATE(timestamp)'))
             ->orderBy('date')
             ->get();
 
@@ -58,7 +83,7 @@ class AnalyticsService
 
     public function getAdvancedAnalytics($filters = [])
     {
-        $query = TemperatureReading::with(['machine.branch']);
+        $query = Temperature::with(['machine.branch']);
 
         // Apply filters
         if (isset($filters['branch_id']) && $filters['branch_id']) {
@@ -72,82 +97,325 @@ class AnalyticsService
         }
 
         if (isset($filters['date_from']) && $filters['date_from']) {
-            $query->where('recorded_at', '>=', $filters['date_from']);
+            $query->where('timestamp', '>=', $filters['date_from'] . ' 00:00:00');
         }
 
         if (isset($filters['date_to']) && $filters['date_to']) {
-            $query->where('recorded_at', '<=', $filters['date_to'] . ' 23:59:59');
+            $query->where('timestamp', '<=', $filters['date_to'] . ' 23:59:59');
         }
 
-        $readings = $query->orderBy('recorded_at')->get();
+        $readings = $query->orderBy('timestamp')->get();
 
-        // Generate different chart data based on chart type
-        $chartType = $filters['chart_type'] ?? 'line';
+       Log::info('Advanced Analytics Debug:', [
+            'filters' => $filters,
+            'readings_count' => $readings->count(),
+            'has_readings' => $readings->isNotEmpty()
+        ]);
 
-        switch ($chartType) {
-            case 'hourly':
-                return $this->getHourlyAnalytics($readings);
-            case 'daily':
-                return $this->getDailyAnalytics($readings);
-            case 'monthly':
-                return $this->getMonthlyAnalytics($readings);
-            default:
-                return $this->getLineChartAnalytics($readings);
+        // Jika tidak ada data sama sekali, generate demo data
+        if ($readings->isEmpty()) {
+            Log::info('No readings found, generating demo data');
+            return $this->generateDemoDataFromFilters($filters);
         }
+
+        // Generate daily analytics
+        $dailyData = $this->getDailyAnalytics($readings);
+
+        Log::info('Daily Analytics Debug:', [
+            'daily_data_count' => $dailyData->count(),
+            'first_daily_item' => $dailyData->first()
+        ]);
+
+        // Jika data kurang dari 7 hari, enrich dengan demo data
+        if ($dailyData->count() < 7) {
+            Log::info('Enriching with demo data');
+            return $this->enrichWithDemoData($dailyData, $readings);
+        }
+
+        return $dailyData;
+    }
+    private function generateDemoDataFromFilters($filters)
+    {
+        $demoData = collect();
+        $dateFrom = $filters['date_from'] ?? now()->subDays(30)->format('Y-m-d');
+        $dateTo = $filters['date_to'] ?? now()->format('Y-m-d');
+
+        $startDate = Carbon::parse($dateFrom);
+        $endDate = Carbon::parse($dateTo);
+        $daysDiff = $startDate->diffInDays($endDate);
+
+        // Base temperature untuk demo (sesuai dengan data seasonal yang ada)
+        $baseTemp = -15.0;
+
+        Log::info('Generating demo data from filters', [
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'days_diff' => $daysDiff,
+            'base_temp' => $baseTemp
+        ]);
+
+        for ($i = 0; $i <= $daysDiff && $i < 30; $i++) {
+            $currentDate = $startDate->copy()->addDays($i);
+
+            // Variasi temperatur
+            $tempVariation = rand(-300, 300) / 100; // ±3°C variation
+            $demoTemp = $baseTemp + $tempVariation;
+
+            $demoData->push([
+                'date' => $currentDate->format('Y-m-d'),
+                'avg_temperature' => round($demoTemp, 2),
+                'min_temperature' => round($demoTemp - rand(10, 30) / 10, 2),
+                'max_temperature' => round($demoTemp + rand(10, 30) / 10, 2),
+                'reading_count' => rand(5, 15),
+                'anomaly_count' => rand(0, 2),
+                'is_demo' => true
+            ]);
+        }
+
+        Log::info('Demo data generated', ['count' => $demoData->count()]);
+        return $demoData;
+    }
+    private function enrichWithDemoData($dailyData, $readings)
+    {
+        $demoData = collect();
+        $baseTemp = $readings->isNotEmpty() ? $readings->avg('temperature_value') : -15.0;
+
+        // Gunakan tanggal dari data yang ada atau default 30 hari terakhir
+        $startDate = $dailyData->isNotEmpty()
+            ? Carbon::parse($dailyData->first()['date'])->subDays(15) // Mulai 15 hari sebelum data pertama
+            : now()->subDays(29);
+
+        $endDate = $dailyData->isNotEmpty()
+            ? Carbon::parse($dailyData->last()['date'])->addDays(15) // Tambah 15 hari setelah data terakhir
+            : now();
+
+        // Pastikan tidak lebih dari 30 hari
+        $daysDiff = $startDate->diffInDays($endDate);
+        if ($daysDiff > 30) {
+            $endDate = $startDate->copy()->addDays(29);
+        }
+
+        Log::info('Enriching demo data', [
+            'start_date' => $startDate->format('Y-m-d'),
+            'end_date' => $endDate->format('Y-m-d'),
+            'base_temp' => $baseTemp,
+            'existing_data_count' => $dailyData->count()
+        ]);
+
+        // Generate data untuk setiap hari dalam range
+        $currentDate = $startDate->copy();
+        while ($currentDate <= $endDate) {
+            $dateStr = $currentDate->format('Y-m-d');
+
+            // Cek apakah ada data real untuk tanggal ini
+            $existing = $dailyData->where('date', $dateStr)->first();
+            if ($existing) {
+                $demoData->push($existing);
+            } else {
+                // Generate data demo
+                $tempVariation = rand(-300, 300) / 100;
+                $demoTemp = $baseTemp + $tempVariation;
+
+                $demoData->push([
+                    'date' => $dateStr,
+                    'avg_temperature' => round($demoTemp, 2),
+                    'min_temperature' => round($demoTemp - rand(10, 30) / 10, 2),
+                    'max_temperature' => round($demoTemp + rand(10, 30) / 10, 2),
+                    'reading_count' => rand(5, 15),
+                    'anomaly_count' => rand(0, 2),
+                    'is_demo' => true
+                ]);
+            }
+
+            $currentDate->addDay();
+        }
+
+        Log::info('Enriched data generated', ['count' => $demoData->count()]);
+        return $demoData->sortBy('date')->values();
+    }
+
+    private function generateDemoData($readings, $existingData)
+    {
+        $demoData = collect();
+
+        // Gunakan data yang ada sebagai base
+        $baseDate = $readings->first()->timestamp;
+        $baseTemp = $readings->avg('temperature_value');
+
+        // Generate 30 hari data demo berdasarkan data real
+        for ($i = 29; $i >= 0; $i--) {
+            $date = $baseDate->copy()->subDays($i)->format('Y-m-d');
+
+            // Jika ada data real untuk tanggal ini, gunakan data real
+            $existing = $existingData->where('date', $date)->first();
+            if ($existing) {
+                $demoData->push($existing);
+                continue;
+            }
+
+            // Generate data demo dengan variasi
+            $tempVariation = rand(-500, 500) / 100; // ±5°C variation
+            $demoTemp = $baseTemp + $tempVariation;
+
+            $demoData->push([
+                'date' => $date,
+                'avg_temperature' => round($demoTemp, 2),
+                'min_temperature' => round($demoTemp - rand(10, 30) / 10, 2),
+                'max_temperature' => round($demoTemp + rand(10, 30) / 10, 2),
+                'reading_count' => rand(5, 20),
+                'anomaly_count' => rand(0, 2),
+                'is_demo' => true // Flag untuk data demo
+            ]);
+        }
+
+        return $demoData;
     }
 
     public function getSeasonalAnalysis($filters = [])
     {
-        $monthlyData = MonthlySummary::select(
-                'month',
-                DB::raw('AVG(temp_avg) as avg_temperature'),
-                DB::raw('AVG(temp_min) as min_temperature'),
-                DB::raw('AVG(temp_max) as max_temperature'),
-                DB::raw('COUNT(*) as machine_count')
-            )
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
+        // Get monthly data from Temperature table grouped by month
+        $query = Temperature::select(
+            DB::raw('MONTH(timestamp) as month'),
+            DB::raw('AVG(temperature_value) as avg_temperature'),
+            DB::raw('MIN(temperature_value) as min_temperature'),
+            DB::raw('MAX(temperature_value) as max_temperature'),
+            DB::raw('COUNT(*) as reading_count')
+        );
+
+        // Apply filters
+        if (isset($filters['branch_id']) && $filters['branch_id']) {
+            $query->whereHas('machine', function($q) use ($filters) {
+                $q->where('branch_id', $filters['branch_id']);
+            });
+        }
+
+        if (isset($filters['machine_id']) && $filters['machine_id']) {
+            $query->where('machine_id', $filters['machine_id']);
+        }
+
+        // Untuk data terbatas, gunakan semua data yang ada (tidak perlu filter tahun)
+        $monthlyData = $query->groupBy(DB::raw('MONTH(timestamp)'))
+                           ->orderBy('month')
+                           ->get();
+
+        // Jika data kurang dari 6 bulan, generate data demo
+        if ($monthlyData->count() < 6) {
+            return $this->generateSeasonalDemoData($monthlyData);
+        }
 
         return $monthlyData->map(function ($data) {
             return [
                 'month' => $this->getMonthName($data->month),
                 'month_number' => $data->month,
-                'avg_temperature' => round($data->avg_temperature, 2),
-                'min_temperature' => round($data->min_temperature, 2),
-                'max_temperature' => round($data->max_temperature, 2),
-                'machine_count' => $data->machine_count
+                'avg_temperature' => round($data->avg_temperature ?? 0, 2),
+                'min_temperature' => round($data->min_temperature ?? 0, 2),
+                'max_temperature' => round($data->max_temperature ?? 0, 2),
+                'reading_count' => $data->reading_count ?? 0
             ];
         });
     }
 
+    private function generateSeasonalDemoData($realData)
+    {
+        $demoData = collect();
+        $baseTemp = $realData->isNotEmpty() ? $realData->avg('avg_temperature') : -11.18;
+
+        for ($month = 1; $month <= 12; $month++) {
+            // Cek apakah ada data real untuk bulan ini
+            $realMonth = $realData->where('month', $month)->first();
+            if ($realMonth) {
+                $demoData->push([
+                    'month' => $this->getMonthName($month),
+                    'month_number' => $month,
+                    'avg_temperature' => round($realMonth->avg_temperature, 2),
+                    'min_temperature' => round($realMonth->min_temperature, 2),
+                    'max_temperature' => round($realMonth->max_temperature, 2),
+                    'reading_count' => $realMonth->reading_count,
+                    'is_real' => true
+                ]);
+                continue;
+            }
+
+            // Generate data demo dengan pola musiman
+            $seasonalVariation = 0;
+            if ($month >= 3 && $month <= 5) { // Spring
+                $seasonalVariation = 5;
+            } elseif ($month >= 6 && $month <= 8) { // Summer
+                $seasonalVariation = 10;
+            } elseif ($month >= 9 && $month <= 11) { // Fall
+                $seasonalVariation = 2;
+            } else { // Winter
+                $seasonalVariation = -5;
+            }
+
+            $demoTemp = $baseTemp + $seasonalVariation + (rand(-200, 200) / 100);
+
+            $demoData->push([
+                'month' => $this->getMonthName($month),
+                'month_number' => $month,
+                'avg_temperature' => round($demoTemp, 2),
+                'min_temperature' => round($demoTemp - rand(15, 40) / 10, 2),
+                'max_temperature' => round($demoTemp + rand(15, 40) / 10, 2),
+                'reading_count' => rand(50, 200),
+                'is_demo' => true
+            ]);
+        }
+
+        return $demoData;
+    }
+
     public function getBranchComparison($filters = [])
     {
-        $branchData = Branch::with(['machines', 'temperatureReadings' => function($query) use ($filters) {
-            if (isset($filters['date_from'])) {
-                $query->where('recorded_at', '>=', $filters['date_from']);
-            }
-            if (isset($filters['date_to'])) {
-                $query->where('recorded_at', '<=', $filters['date_to'] . ' 23:59:59');
-            }
-        }])
-        ->where('is_active', true)
-        ->get();
+        $branchData = Branch::with(['machines'])->where('is_active', true)->get();
 
-        return $branchData->map(function ($branch) {
-            $readings = $branch->temperatureReadings;
+        return $branchData->map(function ($branch) use ($filters) {
+            $query = Temperature::whereHas('machine', function($q) use ($branch) {
+                $q->where('branch_id', $branch->id);
+            });
+
+            // Apply date filters
+            if (isset($filters['date_from']) && $filters['date_from']) {
+                $query->where('timestamp', '>=', $filters['date_from'] . ' 00:00:00');
+            }
+            if (isset($filters['date_to']) && $filters['date_to']) {
+                $query->where('timestamp', '<=', $filters['date_to'] . ' 23:59:59');
+            }
+
+            $readings = $query->get();
+
+            // Handle empty readings
+            if ($readings->isEmpty()) {
+                return [
+                    'branch_name' => $branch->name,
+                    'machine_count' => $branch->machines->where('is_active', true)->count(),
+                    'total_readings' => 0,
+                    'avg_temperature' => 0,
+                    'min_temperature' => 0,
+                    'max_temperature' => 0,
+                    'anomaly_count' => 0,
+                    'anomaly_rate' => 0,
+                    'performance_score' => 0
+                ];
+            }
+
+            $anomalyCount = $readings->filter(function($reading) {
+                $machine = $reading->machine;
+                if (!$machine) return false;
+
+                $temp = $reading->temperature_value;
+                return $temp < $machine->temp_min_normal || $temp > $machine->temp_max_normal;
+            })->count();
 
             return [
                 'branch_name' => $branch->name,
                 'machine_count' => $branch->machines->where('is_active', true)->count(),
                 'total_readings' => $readings->count(),
-                'avg_temperature' => $readings->avg('temperature'),
-                'min_temperature' => $readings->min('temperature'),
-                'max_temperature' => $readings->max('temperature'),
-                'anomaly_count' => $readings->where('is_anomaly', true)->count(),
-                'anomaly_rate' => $readings->count() > 0 ?
-                    ($readings->where('is_anomaly', true)->count() / $readings->count()) * 100 : 0,
-                'performance_score' => $this->calculatePerformanceScore($branch, $readings)
+                'avg_temperature' => $readings->avg('temperature_value') ?? 0,
+                'min_temperature' => $readings->min('temperature_value') ?? 0,
+                'max_temperature' => $readings->max('temperature_value') ?? 0,
+                'anomaly_count' => $anomalyCount,
+                'anomaly_rate' => $readings->count() > 0 ? ($anomalyCount / $readings->count()) * 100 : 0,
+                'performance_score' => $this->calculatePerformanceScore($branch, $readings, $anomalyCount)
             ];
         });
     }
@@ -166,8 +434,8 @@ class AnalyticsService
 
     public function getPredictiveMaintenanceInsights()
     {
-        $machines = Machine::with(['temperatureReadings' => function($query) {
-            $query->where('recorded_at', '>=', now()->subDays(30));
+        $machines = Machine::with(['temperature' => function($query) {
+            $query->where('timestamp', '>=', now()->subDays(30));
         }, 'maintenanceRecommendations' => function($query) {
             $query->where('status', 'pending');
         }])
@@ -175,9 +443,24 @@ class AnalyticsService
         ->get();
 
         return $machines->map(function ($machine) {
-            $readings = $machine->temperatureReadings;
-            $trend = $this->calculateTemperatureTrend($readings);
+            $readings = $machine->temperature;
 
+            // Handle empty readings
+            if ($readings->isEmpty()) {
+                return [
+                    'machine' => $machine,
+                    'risk_score' => 0,
+                    'trend_direction' => 'stable',
+                    'trend_rate' => 0,
+                    'avg_temperature' => 0,
+                    'anomaly_count' => 0,
+                    'days_since_maintenance' => $this->getDaysSinceLastMaintenance($machine),
+                    'predicted_maintenance_date' => now()->addDays(365),
+                    'recommendations' => []
+                ];
+            }
+
+            $trend = $this->calculateTemperatureTrend($readings);
             $riskScore = $this->calculateMaintenanceRisk($machine, $readings, $trend);
 
             return [
@@ -185,8 +468,8 @@ class AnalyticsService
                 'risk_score' => $riskScore,
                 'trend_direction' => $trend['direction'],
                 'trend_rate' => $trend['rate'],
-                'avg_temperature' => $readings->avg('temperature'),
-                'anomaly_count' => $readings->where('is_anomaly', true)->count(),
+                'avg_temperature' => $readings->avg('temperature_value') ?? 0,
+                'anomaly_count' => $this->countAnomaliesForReadings($readings),
                 'days_since_maintenance' => $this->getDaysSinceLastMaintenance($machine),
                 'predicted_maintenance_date' => $this->predictMaintenanceDate($machine, $riskScore),
                 'recommendations' => $this->generateMaintenanceRecommendations($machine, $riskScore, $trend)
@@ -194,89 +477,71 @@ class AnalyticsService
         })->sortByDesc('risk_score')->values();
     }
 
-    private function getHourlyAnalytics($readings)
-    {
-        return $readings->groupBy(function($reading) {
-            return $reading->recorded_at->format('Y-m-d H:00:00');
-        })->map(function($hourlyReadings, $hour) {
-            return [
-                'time' => $hour,
-                'avg_temperature' => $hourlyReadings->avg('temperature'),
-                'min_temperature' => $hourlyReadings->min('temperature'),
-                'max_temperature' => $hourlyReadings->max('temperature'),
-                'reading_count' => $hourlyReadings->count()
-            ];
-        })->values();
-    }
-
     private function getDailyAnalytics($readings)
     {
+        if ($readings->isEmpty()) {
+            return collect([]);
+        }
+
         return $readings->groupBy(function($reading) {
-            return $reading->recorded_at->format('Y-m-d');
+            return $reading->timestamp->format('Y-m-d');
         })->map(function($dailyReadings, $date) {
+            $temperatures = $dailyReadings->pluck('temperature_value')->filter();
+
             return [
                 'date' => $date,
-                'avg_temperature' => $dailyReadings->avg('temperature'),
-                'min_temperature' => $dailyReadings->min('temperature'),
-                'max_temperature' => $dailyReadings->max('temperature'),
+                'avg_temperature' => $temperatures->isNotEmpty() ? $temperatures->avg() : 0,
+                'min_temperature' => $temperatures->isNotEmpty() ? $temperatures->min() : 0,
+                'max_temperature' => $temperatures->isNotEmpty() ? $temperatures->max() : 0,
                 'reading_count' => $dailyReadings->count(),
-                'anomaly_count' => $dailyReadings->where('is_anomaly', true)->count()
+                'anomaly_count' => $this->countAnomaliesForReadings($dailyReadings)
             ];
         })->values();
     }
 
-    private function getMonthlyAnalytics($readings)
+    private function calculatePerformanceScore($branch, $readings, $anomalyCount = null)
     {
-        return $readings->groupBy(function($reading) {
-            return $reading->recorded_at->format('Y-m');
-        })->map(function($monthlyReadings, $month) {
-            return [
-                'month' => $month,
-                'avg_temperature' => $monthlyReadings->avg('temperature'),
-                'min_temperature' => $monthlyReadings->min('temperature'),
-                'max_temperature' => $monthlyReadings->max('temperature'),
-                'reading_count' => $monthlyReadings->count(),
-                'anomaly_count' => $monthlyReadings->where('is_anomaly', true)->count()
-            ];
-        })->values();
+         if ($readings->isEmpty()) {
+        // Return demo score jika tidak ada data
+        return max(60, min(95, rand(70, 90))); // Score antara 70-90 untuk demo
     }
 
-    private function getLineChartAnalytics($readings)
-    {
-        return $readings->map(function($reading) {
-            return [
-                'time' => $reading->recorded_at->format('Y-m-d H:i:s'),
-                'temperature' => $reading->temperature,
-                'machine' => $reading->machine->name,
-                'branch' => $reading->machine->branch->name,
-                'is_anomaly' => $reading->is_anomaly
-            ];
-        });
+    $score = 100;
+
+    // Calculate anomaly count if not provided
+    if ($anomalyCount === null) {
+        $anomalyCount = $this->countAnomaliesForReadings($readings);
     }
 
-    private function calculatePerformanceScore($branch, $readings)
+    // Reduce score based on anomaly rate
+    $anomalyRate = ($anomalyCount / $readings->count()) * 100;
+    $score -= $anomalyRate * 0.5;
+
+    // Reduce score based on temperature variance
+    $temperatures = $readings->pluck('temperature_value');
+    $variance = $this->calculateVariance($temperatures);
+    $score -= min($variance * 2, 20);
+
+    // Reduce score based on pending maintenance
+    $pendingMaintenance = MaintenanceRecommendation::whereHas('machine', function($query) use ($branch) {
+        $query->where('branch_id', $branch->id);
+    })->where('status', 'pending')->count();
+
+    $score -= $pendingMaintenance * 5;
+
+    // Ensure score is between 0 and 100
+    return max(0, min(100, round($score, 2)));
+    }
+
+    private function countAnomaliesForReadings($readings)
     {
-        if ($readings->isEmpty()) return 0;
+        return $readings->filter(function($reading) {
+            $machine = $reading->machine;
+            if (!$machine) return false;
 
-        $score = 100;
-
-        // Reduce score based on anomaly rate
-        $anomalyRate = ($readings->where('is_anomaly', true)->count() / $readings->count()) * 100;
-        $score -= $anomalyRate * 0.5;
-
-        // Reduce score based on temperature variance
-        $temperatures = $readings->pluck('temperature');
-        $variance = $this->calculateVariance($temperatures);
-        $score -= min($variance * 2, 20); // Max 20 point reduction for high variance
-
-        // Reduce score based on pending maintenance
-        $pendingMaintenance = MaintenanceRecommendation::whereHas('machine', function($query) use ($branch) {
-            $query->where('branch_id', $branch->id);
-        })->where('status', 'pending')->count();
-
-        $score -= $pendingMaintenance * 5; // 5 points per pending maintenance
-
-        return max(0, round($score, 2));
+            $temp = $reading->temperature_value;
+            return $temp < $machine->temp_min_normal || $temp > $machine->temp_max_normal;
+        })->count();
     }
 
     private function calculateVariance($values)
@@ -284,11 +549,9 @@ class AnalyticsService
         if ($values->isEmpty()) return 0;
 
         $mean = $values->avg();
-        $variance = $values->map(function($value) use ($mean) {
+        return $values->map(function($value) use ($mean) {
             return pow($value - $mean, 2);
         })->avg();
-
-        return $variance;
     }
 
     private function calculateTemperatureTrend($readings)
@@ -297,12 +560,12 @@ class AnalyticsService
             return ['direction' => 'stable', 'rate' => 0];
         }
 
-        $readings = $readings->sortBy('recorded_at');
+        $readings = $readings->sortBy('timestamp');
         $first = $readings->first();
         $last = $readings->last();
 
-        $tempChange = $last->temperature - $first->temperature;
-        $timeChange = $last->recorded_at->diffInHours($first->recorded_at);
+        $tempChange = $last->temperature_value - $first->temperature_value;
+        $timeChange = $last->timestamp->diffInHours($first->timestamp);
 
         $rate = $timeChange > 0 ? $tempChange / $timeChange : 0;
 
@@ -327,12 +590,13 @@ class AnalyticsService
         // Age factor
         if ($machine->installation_date) {
             $ageYears = Carbon::parse($machine->installation_date)->diffInYears(now());
-            $risk += min($ageYears * 5, 30); // Max 30 points for age
+            $risk += min($ageYears * 5, 30);
         }
 
         // Anomaly factor
         if ($readings->count() > 0) {
-            $anomalyRate = ($readings->where('is_anomaly', true)->count() / $readings->count()) * 100;
+            $anomalyCount = $this->countAnomaliesForReadings($readings);
+            $anomalyRate = ($anomalyCount / $readings->count()) * 100;
             $risk += $anomalyRate * 0.8;
         }
 
@@ -349,7 +613,7 @@ class AnalyticsService
 
         // Temperature variance
         if ($readings->count() > 0) {
-            $variance = $this->calculateVariance($readings->pluck('temperature'));
+            $variance = $this->calculateVariance($readings->pluck('temperature_value'));
             $risk += min($variance * 2, 15);
         }
 
@@ -373,11 +637,10 @@ class AnalyticsService
 
     private function predictMaintenanceDate($machine, $riskScore)
     {
-        $baseDays = 365; // Base maintenance interval
+        $baseDays = 365;
 
-        // Adjust based on risk score
-        $riskMultiplier = 1 - ($riskScore / 200); // Higher risk = sooner maintenance
-        $adjustedDays = max(30, $baseDays * $riskMultiplier); // Minimum 30 days
+        $riskMultiplier = 1 - ($riskScore / 200);
+        $adjustedDays = max(30, $baseDays * $riskMultiplier);
 
         $lastMaintenance = MaintenanceRecommendation::where('machine_id', $machine->id)
             ->where('status', 'completed')

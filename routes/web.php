@@ -20,6 +20,12 @@ Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
 // Analytics Routes
 Route::get('/analytics', [DashboardController::class, 'analytics'])->name('analytics');
+Route::get('/dashboard/analytics', [DashboardController::class, 'analytics'])->name('dashboard.analytics');
+
+// Test route untuk debug
+Route::get('/test-chart', function () {
+    return view('test-chart');
+});
 Route::get('/branch-comparison', [DashboardController::class, 'branchComparison'])->name('branch-comparison');
 Route::get('/alerts', [DashboardController::class, 'alerts'])->name('alerts');
 
@@ -36,8 +42,6 @@ Route::post('/temperature/upload-excel', [TemperatureController::class, 'uploadE
 Route::get('/temperature/export/pdf', [TemperatureController::class, 'exportPdf'])->name('temperature.export-pdf');
 Route::post('/upload-pdf', [TemperatureController::class, 'uploadPdfPy'])->name('temperature.upload-pdf-py');
 Route::get('/temperature/chart-data/{machineId}/{date}', [TemperatureController::class, 'getChartData'])->name('temperature.chart-data');
-Route::post('/temperature/validateTemperature/{date}', [TemperatureController::class, 'validateTemperature'])->name('temperature.validate');
-
 
 // Temperature Validation Routes
 Route::prefix('temperature/validation')->group(function () {
@@ -93,3 +97,25 @@ Route::prefix('api')->group(function () {
 Route::get('/profile', function () {
     return view('profile.index');
 })->name('profile');
+
+// routes/web.php - Tambahkan route debug
+Route::get('/debug-analytics', function () {
+    $service = app(\App\Services\AnalyticsService::class);
+
+    // Test setiap method service
+    $filters = [
+        'date_from' => now()->subDays(30)->format('Y-m-d'),
+        'date_to' => now()->format('Y-m-d')
+    ];
+
+    $results = [
+        'temperature_count' => \App\Models\Temperature::count(),
+        'branch_count' => \App\Models\Branch::where('is_active', true)->count(),
+        'machine_count' => \App\Models\Machine::where('is_active', true)->count(),
+        'advanced_analytics' => $service->getAdvancedAnalytics($filters),
+        'seasonal_analysis' => $service->getSeasonalAnalysis($filters),
+        'branch_comparison' => $service->getBranchComparison($filters),
+    ];
+
+    dd($results);
+});

@@ -110,7 +110,7 @@
                                     <tr class="{{ $reading->is_anomaly ? 'table-warning' : '' }}">
                                         <td>{{ $loop->iteration }}</td>
                                         <td>{{ $reading->temperature_value }}°C</td>
-                                        <td>{{ $reading->timestamp }}</td>
+                                        <td>{{ $reading->reading_time }}</td>
                                         <td>
                                             <small class="text-muted">{{ optional($reading->machine)->type ?? '-' }}</small>
                                             <small class="text-muted">{{ optional($reading->machine)->type ?? '-' }}</small>
