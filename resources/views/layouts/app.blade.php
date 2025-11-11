@@ -6,15 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Temperature Monitoring System')</title>
 
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Custom CSS -->
     <style>
+        /* Variabel yang ditambahkan untuk kontrol layout */
         :root {
+            --sidebar-width: 280px; /* Ukuran sidebar disesuaikan agar mirip col-md-3/col-lg-2 di layout grid */
+            --navbar-height: 56px;
             --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             --secondary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
@@ -26,16 +25,24 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
+            padding-top: var(--navbar-height); /* Padding untuk fixed navbar */
+            overflow-x: hidden;
         }
 
+        /* --- Navbar Fixed --- */
         .navbar {
             background: var(--primary-gradient);
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1030;
         }
 
         .navbar-brand {
             font-weight: 700;
             font-size: 1.5rem;
+            color: white !important; /* Agar tetap putih */
         }
 
         .nav-link {
@@ -45,43 +52,6 @@
 
         .nav-link:hover {
             transform: translateY(-2px);
-        }
-
-        .sidebar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            min-height: calc(100vh - 100px);
-        }
-
-        .sidebar .nav-link {
-            color: #495057;
-            border-radius: 10px;
-            margin: 2px 0;
-            padding: 12px 16px;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar .nav-link:hover {
-            background: linear-gradient(135deg, #667eea20, #764ba220);
-            color: #667eea;
-            transform: translateX(5px);
-        }
-
-        .sidebar .nav-link.active {
-            background: var(--primary-gradient);
-            color: white;
-            font-weight: 600;
-        }
-
-        .main-content {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            min-height: calc(100vh - 100px);
-            padding: 30px;
         }
 
         .card {
@@ -101,35 +71,6 @@
             color: white;
             border-radius: 15px 15px 0 0 !important;
             font-weight: 600;
-        }
-
-        .btn-primary {
-            background: var(--primary-gradient);
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            padding: 10px 20px;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-success {
-            background: var(--success-gradient);
-            border: none;
-        }
-
-        .btn-danger {
-            background: var(--danger-gradient);
-            border: none;
-        }
-
-        .btn-warning {
-            background: var(--warning-gradient);
-            border: none;
         }
 
         .stat-card {
@@ -241,140 +182,238 @@
         .status-critical {
             color: #dc3545;
         }
+        
+        /* Tombol Hamburger di Navbar */
+        #sidebarToggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            margin-right: 15px;
+            transition: all 0.3s ease;
+        }
 
-        @media (max-width: 768px) {
-            .sidebar {
-                margin-bottom: 20px;
+        .nav-link {
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            transform: translateY(-2px);
+        }
+
+        /* --- Sidebar Fixed (Layout Baru) --- */
+        .sidebar-wrapper {
+            position: fixed;
+            top: var(--navbar-height);
+            left: 0;
+            width: var(--sidebar-width);
+            height: calc(100vh - var(--navbar-height));
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease;
+            z-index: 1020;
+            padding: 15px 0;
+            margin-top: 25px;
+            border-radius: 0 15px 0 0;
+        }
+
+        /* Status Sidebar Tertutup */
+        .sidebar-wrapper.collapsed {
+            transform: translateX(calc(0px - var(--sidebar-width)));
+        }
+
+        /* Sidebar content styling */
+        .sidebar-wrapper .nav-link {
+            color: #495057;
+            border-radius: 10px; /* Menggunakan gaya aslinya, tetapi margin kanan 10px */
+            margin-right: 10px; 
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-wrapper .nav-link:hover {
+            background: linear-gradient(135deg, #667eea20, #764ba220);
+            color: #667eea;
+            transform: translateX(5px);
+        }
+
+        .sidebar-wrapper .nav-link.active {
+            background: var(--primary-gradient);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            margin-left: var(--sidebar-width); /* Jarak default untuk sidebar terbuka */
+            padding: 30px;
+            transition: margin-left 0.3s ease;
+            
+            /* Gaya card main-content dari kode lama */
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            min-height: calc(100vh - 80px); 
+        }
+
+        /* Main Content Melebar saat Sidebar Tertutup */
+        .main-content.expanded {
+            margin-left: 0;
+        }
+
+        /* Overlay untuk Mobile View (saat sidebar terbuka) */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1010;
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
+        /* --- Responsive Design --- */
+        @media (max-width: 991.98px) {
+            /* Di mobile/tablet */
+            .sidebar-wrapper {
+                transform: translateX(calc(0px - var(--sidebar-width)));
+                box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+            }
+            /* Kelas 'show' hanya digunakan di mobile untuk membuka sidebar */
+            .sidebar-wrapper.show {
+                transform: translateX(0);
             }
 
             .main-content {
-                margin-top: 0;
+                margin-left: 0; /* Di mobile, content selalu melebar */
+                padding: 15px;
             }
         }
+        
+        /* Tambahkan kembali semua gaya dari kode asal Anda di sini */
+        .card { /* ... */ }
+        .stat-card { /* ... */ }
+        /* ... dan seterusnya ... */
     </style>
 
     @stack('styles')
 </head>
 
 <body>
-    <!-- Navigation -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
+            <button id="sidebarToggle" type="button">
+                <i class="bi bi-list"></i>
+            </button>
+            
             <a class="navbar-brand" href="{{ route('dashboard') }}">
                 <i class="bi bi-thermometer-snow"></i> Temperature Monitor
             </a>
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button"
-                            data-bs-toggle="dropdown">
-                            <i class="bi bi-bell"></i>
-                            <span class="badge bg-danger" id="alertCount">0</span>
-                        </a>
-                        <ul class="dropdown-menu" id="alertsMenu">
-                            <li><span class="dropdown-header">No new alerts</span></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ route('profile') }}">
-                            <i class="bi bi-person"></i> Profile
-                        </a>
-                    </li>
-                </ul>
+            <div class="ms-auto d-flex align-items-center">
+                <li class="nav-item dropdown list-unstyled">
+                    <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-bell"></i>
+                        <span class="badge bg-danger" id="alertCount">0</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" id="alertsMenu">
+                        <li><span class="dropdown-header">No new alerts</span></li>
+                    </ul>
+                </li>
+                <a class="nav-link text-white" href="{{ route('profile') }}">
+                    <i class="bi bi-person"></i> Profile
+                </a>
             </div>
+            
         </div>
     </nav>
 
-    <div class="container-fluid mt-4">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2">
-                <div class="sidebar p-3">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
-                                href="{{ route('dashboard') }}">
-                                <i class="bi bi-speedometer2"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('branches.*') ? 'active' : '' }}"
-                                href="{{ route('branches.index') }}">
-                                <i class="bi bi-building"></i> Cabang (Branches)
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('machines.*') ? 'active' : '' }}"
-                                href="{{ route('machines.index') }}">
-                                <i class="bi bi-cpu"></i> Mesin (Machines)
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('temperature.*') ? 'active' : '' }}"
-                                href="{{ route('temperature.index') }}">
-                                <i class="bi bi-thermometer"></i> Temperature Data
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('analytics') ? 'active' : '' }}"
-                                href="{{ route('analytics') }}">
-                                <i class="bi bi-graph-up"></i> Analisis (Analytics)
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('anomalies.*') ? 'active' : '' }}"
-                                href="{{ route('anomalies.index') }}">
-                                <i class="bi bi-exclamation-triangle"></i> Anomali (Anomalies)
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}"
-                                href="{{ route('maintenance.index') }}">
-                                <i class="bi bi-tools"></i> Pemeliharaan (Maintenance)
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}"
-                                href="{{ route('branch-comparison') }}">
-                                <i class="bi bi-bar-chart"></i> Perbandingan Cabang (Branch Comparison)
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
+    <div class="sidebar-wrapper" id="sidebarWrapper">
+        <div class="p-3">
+            <ul class="nav flex-column gap-2">
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('branches.*') ? 'active' : '' }}" href="{{ route('branches.index') }}">
+                        <i class="bi bi-building"></i> Cabang (Branches)
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('machines.*') ? 'active' : '' }}" href="{{ route('machines.index') }}">
+                        <i class="bi bi-cpu"></i> Mesin (Machines)
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('temperature.*') ? 'active' : '' }}" href="{{ route('temperature.index') }}">
+                        <i class="bi bi-thermometer"></i> Temperature Data
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('analytics') ? 'active' : '' }}" href="{{ route('analytics') }}">
+                        <i class="bi bi-graph-up"></i> Analisis (Analytics)
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('anomalies.*') ? 'active' : '' }}" href="{{ route('anomalies.index') }}">
+                        <i class="bi bi-exclamation-triangle"></i> Anomali (Anomalies)
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}" href="{{ route('maintenance.index') }}">
+                        <i class="bi bi-tools"></i> Pemeliharaan (Maintenance)
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}" href="{{ route('branch-comparison') }}">
+                        <i class="bi bi-bar-chart"></i> Perbandingan Cabang (Branch Comparison)
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
 
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10">
-                <div class="main-content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="main-content mt-4" id="mainContent">
                     @if(session('success'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="bi bi-check-circle"></i> {{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="bi bi-check-circle"></i> {{ session('success') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
                     @endif
 
                     @if(session('error'))
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="bi bi-exclamation-circle"></i> {{ session('error') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-circle"></i> {{ session('error') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
                     @endif
 
                     @if($errors->any())
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="bi bi-exclamation-circle"></i>
-                            <ul class="mb-0">
-                                @foreach($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-circle"></i>
+                        <ul class="mb-0">
+                            @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
                     @endif
 
                     @yield('content')
@@ -382,23 +421,76 @@
             </div>
         </div>
     </div>
-
-    <!-- Bootstrap JS -->
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Global JavaScript -->
     <script>
-        // Auto-refresh functionality
-        function startAutoRefresh() {
-            setInterval(function () {
-                if (document.getElementById('auto-refresh')?.checked) {
-                    location.reload();
-                }
-            }, 30000); // 30 seconds
-        }
-
-        // Initialize tooltips
         document.addEventListener('DOMContentLoaded', function () {
+            // --- Logika Toggle Sidebar ---
+            const sidebarWrapper = document.getElementById('sidebarWrapper');
+            const mainContent = document.getElementById('mainContent');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const overlay = document.getElementById('sidebarOverlay');
+
+            // Fungsi untuk mengaktifkan/menonaktifkan sidebar
+            function toggleSidebar() {
+                if (window.innerWidth >= 992) { // Desktop View
+                    sidebarWrapper.classList.toggle('collapsed');
+                    mainContent.classList.toggle('expanded');
+                } else { // Mobile View
+                    sidebarWrapper.classList.toggle('show');
+                    overlay.classList.toggle('active');
+                }
+            }
+
+            sidebarToggle.addEventListener('click', toggleSidebar);
+            
+            // Tutup sidebar mobile saat overlay diklik
+            overlay.addEventListener('click', function() {
+                sidebarWrapper.classList.remove('show');
+                overlay.classList.remove('active');
+            });
+
+            // Inisialisasi awal saat dimuat
+            if (window.innerWidth < 992) {
+                // Di mobile, sidebar dimulai tertutup dan content selalu full width
+                sidebarWrapper.classList.add('collapsed');
+                mainContent.classList.add('expanded');
+            } else {
+                // Di desktop, sidebar dimulai terbuka dan content di sebelah kanan
+                sidebarWrapper.classList.remove('collapsed');
+                mainContent.classList.remove('expanded');
+            }
+            
+            // Atur ulang layout saat window di-resize
+            window.addEventListener('resize', function() {
+                if (window.innerWidth >= 992) {
+                    // Pastikan di desktop, overlay dan kelas show ditutup
+                    overlay.classList.remove('active');
+                    sidebarWrapper.classList.remove('show');
+                    // Tentukan kembali status collapsed berdasarkan kondisi terakhir (jika tidak ada, anggap terbuka)
+                    if (!sidebarWrapper.classList.contains('collapsed')) {
+                        mainContent.classList.remove('expanded');
+                    }
+                } else {
+                    // Pastikan di mobile, content selalu full width
+                    mainContent.classList.add('expanded');
+                    sidebarWrapper.classList.remove('show'); // Pastikan tertutup saat transisi ke mobile
+                }
+            });
+            // --- Akhir Logika Toggle Sidebar ---
+
+            // Auto-refresh functionality
+            function startAutoRefresh() {
+                setInterval(function () {
+                    if (document.getElementById('auto-refresh')?.checked) {
+                        location.reload();
+                    }
+                }, 30000); // 30 seconds
+            }
+
+            // Initialize tooltips
+            document.addEventListener('DOMContentLoaded', function () {
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
@@ -408,10 +500,14 @@
             loadAlerts();
         });
 
+            startAutoRefresh();
+            loadAlerts();
+            
+        });
+
         // Load system alerts
         function loadAlerts() {
             // Implementation would fetch alerts via AJAX
-            // For now, simulated
         }
 
         // Temperature status helper
@@ -439,7 +535,6 @@
     </script>
 
     @stack('scripts')
-    @yield('modals')
 </body>
 
 </html>
