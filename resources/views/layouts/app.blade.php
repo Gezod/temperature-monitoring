@@ -1,14 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Temperature Monitoring System')</title>
 
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- SweetAlert2 -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
         /* Variabel yang ditambahkan untuk kontrol layout */
         :root {
@@ -80,6 +89,8 @@
             padding: 25px;
             text-align: center;
             transition: all 0.3s ease;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
         .stat-card:hover {
@@ -182,7 +193,7 @@
         .status-critical {
             color: #dc3545;
         }
-        
+
         /* Tombol Hamburger di Navbar */
         #sidebarToggle {
             background: none;
@@ -191,15 +202,6 @@
             font-size: 1.5rem;
             margin-right: 15px;
             transition: all 0.3s ease;
-        }
-
-        .nav-link {
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .nav-link:hover {
-            transform: translateY(-2px);
         }
 
         /* --- Sidebar Fixed (Layout Baru) --- */
@@ -228,7 +230,7 @@
         .sidebar-wrapper .nav-link {
             color: #495057;
             border-radius: 10px; /* Menggunakan gaya aslinya, tetapi margin kanan 10px */
-            margin-right: 10px; 
+            margin-right: 10px;
             padding: 12px 16px;
             transition: all 0.3s ease;
         }
@@ -250,13 +252,13 @@
             margin-left: var(--sidebar-width); /* Jarak default untuk sidebar terbuka */
             padding: 30px;
             transition: margin-left 0.3s ease;
-            
+
             /* Gaya card main-content dari kode lama */
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 15px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            min-height: calc(100vh - 80px); 
+            min-height: calc(100vh - 80px);
         }
 
         /* Main Content Melebar saat Sidebar Tertutup */
@@ -281,6 +283,43 @@
             display: block;
         }
 
+        /* Gaya tambahan dari template kedua */
+        .form-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .anomaly-row {
+            transition: all 0.3s ease;
+        }
+
+        .anomaly-row:hover {
+            background-color: #f8f9fa;
+        }
+
+        .anomaly-row[data-severity="critical"] {
+            border-left: 4px solid #dc3545;
+        }
+
+        .anomaly-row[data-severity="high"] {
+            border-left: 4px solid #fd7e14;
+        }
+
+        .anomaly-row[data-severity="medium"] {
+            border-left: 4px solid #ffc107;
+        }
+
+        .anomaly-row[data-severity="low"] {
+            border-left: 4px solid #198754;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+        }
+
         /* --- Responsive Design --- */
         @media (max-width: 991.98px) {
             /* Di mobile/tablet */
@@ -298,11 +337,6 @@
                 padding: 15px;
             }
         }
-        
-        /* Tambahkan kembali semua gaya dari kode asal Anda di sini */
-        .card { /* ... */ }
-        .stat-card { /* ... */ }
-        /* ... dan seterusnya ... */
     </style>
 
     @stack('styles')
@@ -316,26 +350,69 @@
             <button id="sidebarToggle" type="button">
                 <i class="bi bi-list"></i>
             </button>
-            
+
             <a class="navbar-brand" href="{{ route('dashboard') }}">
                 <i class="bi bi-thermometer-snow"></i> Temperature Monitor
             </a>
 
-            <div class="ms-auto d-flex align-items-center">
-                <li class="nav-item dropdown list-unstyled">
-                    <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown" role="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-bell"></i>
-                        <span class="badge bg-danger" id="alertCount">0</span>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                {{-- <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('dashboard*') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('temperature*') ? 'active' : '' }}" href="{{ route('temperature.index') }}">
+                            <i class="bi bi-thermometer"></i> Temperature Data
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('anomalies*') ? 'active' : '' }}" href="{{ route('anomalies.index') }}">
+                            <i class="bi bi-exclamation-triangle"></i> Anomalies
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('maintenance*') ? 'active' : '' }}" href="{{ route('maintenance.index') }}">
+                            <i class="bi bi-tools"></i> Maintenance
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('machines*') ? 'active' : '' }}" href="{{ route('machines.index') }}">
+                            <i class="bi bi-cpu"></i> Machines
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('branches*') ? 'active' : '' }}" href="{{ route('branches.index') }}">
+                            <i class="bi bi-building"></i> Branches
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('analytics*') ? 'active' : '' }}" href="{{ route('analytics') }}">
+                            <i class="bi bi-graph-up"></i> Analytics
+                        </a>
+                    </li>
+                </ul> --}}
+
+                <div class="ms-auto d-flex align-items-center">
+                    <li class="nav-item dropdown list-unstyled">
+                        <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-bell"></i>
+                            <span class="badge bg-danger" id="alertCount">0</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" id="alertsMenu">
+                            <li><span class="dropdown-header">No new alerts</span></li>
+                        </ul>
+                    </li>
+                    <a class="nav-link text-white" href="{{ route('profile') }}">
+                        <i class="bi bi-person"></i> Profile
                     </a>
-                    <ul class="dropdown-menu dropdown-menu-end" id="alertsMenu">
-                        <li><span class="dropdown-header">No new alerts</span></li>
-                    </ul>
-                </li>
-                <a class="nav-link text-white" href="{{ route('profile') }}">
-                    <i class="bi bi-person"></i> Profile
-                </a>
+                </div>
             </div>
-            
         </div>
     </nav>
 
@@ -390,6 +467,51 @@
         <div class="row">
             <div class="col-12">
                 <div class="main-content mt-4" id="mainContent">
+                    <!-- Success Messages -->
+                    @if(session('success'))
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function() {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Berhasil!',
+                                    text: '{{ session('success') }}',
+                                    timer: 3000,
+                                    showConfirmButton: false
+                                });
+                            });
+                        </script>
+                    @endif
+
+                    <!-- Error Messages -->
+                    @if(session('error'))
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function() {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error!',
+                                    text: '{{ session('error') }}',
+                                    confirmButtonText: 'OK'
+                                });
+                            });
+                        </script>
+                    @endif
+
+                    <!-- Validation Errors -->
+                    @if($errors->any())
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function() {
+                                let errorMessages = @json($errors->all());
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Validation Error!',
+                                    html: errorMessages.join('<br>'),
+                                    confirmButtonText: 'OK'
+                                });
+                            });
+                        </script>
+                    @endif
+
+                    <!-- Alert Messages (untuk kompatibilitas dengan template lama) -->
                     @if(session('success'))
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         <i class="bi bi-check-circle"></i> {{ session('success') }}
@@ -421,7 +543,11 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Modals Section -->
+    @yield('modals')
+
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
@@ -444,7 +570,7 @@
             }
 
             sidebarToggle.addEventListener('click', toggleSidebar);
-            
+
             // Tutup sidebar mobile saat overlay diklik
             overlay.addEventListener('click', function() {
                 sidebarWrapper.classList.remove('show');
@@ -461,7 +587,7 @@
                 sidebarWrapper.classList.remove('collapsed');
                 mainContent.classList.remove('expanded');
             }
-            
+
             // Atur ulang layout saat window di-resize
             window.addEventListener('resize', function() {
                 if (window.innerWidth >= 992) {
@@ -490,7 +616,6 @@
             }
 
             // Initialize tooltips
-            document.addEventListener('DOMContentLoaded', function () {
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
@@ -498,11 +623,6 @@
 
             startAutoRefresh();
             loadAlerts();
-        });
-
-            startAutoRefresh();
-            loadAlerts();
-            
         });
 
         // Load system alerts
@@ -531,6 +651,65 @@
                 link.href = canvas.toDataURL();
                 link.click();
             }
+        }
+
+        // Global SweetAlert Functions
+        // Confirm Delete
+        function confirmDelete(form) {
+            Swal.fire({
+                title: 'Apakah Anda yakin?',
+                text: "Data ini akan dihapus secara permanen!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        }
+
+        // Success Toast
+        function showSuccessToast(message) {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
+
+            Toast.fire({
+                icon: 'success',
+                title: message
+            });
+        }
+
+        // Error Toast
+        function showErrorToast(message) {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
+
+            Toast.fire({
+                icon: 'error',
+                title: message
+            });
         }
     </script>
 

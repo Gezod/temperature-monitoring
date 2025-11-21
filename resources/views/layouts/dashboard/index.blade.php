@@ -63,7 +63,7 @@
 <!-- Recent Readings and Alerts -->
 <div class="row mb-4">
     <!-- Recent Temperature Readings -->
-    <div class="col-md-6">
+    <div class="col-md-12">
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -116,7 +116,7 @@
     </div>
 
     <!-- Active Anomalies -->
-    <div class="col-md-6">
+    {{-- <div class="col-md-6">
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -141,8 +141,8 @@
                 @endif
             </div>
         </div>
-    </div>
-</div>
+    </div> --}}
+{{-- </div> --}}
 
 <!-- Branch Performance Summary -->
 <div class="row mb-4">

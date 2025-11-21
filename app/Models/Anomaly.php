@@ -32,16 +32,27 @@ class Anomaly extends Model
         'resolved_at' => 'datetime'
     ];
 
+    /**
+     * Machine relationship
+     */
     public function machine(): BelongsTo
     {
         return $this->belongsTo(Machine::class);
     }
 
+    /**
+     * Temperature Reading relationship
+     * Uses temperature_reading_id
+     */
     public function temperatureReading(): BelongsTo
     {
-        return $this->belongsTo(TemperatureReading::class);
+        return $this->belongsTo(Temperature::class, 'temperature_reading_id');
     }
 
+
+    /**
+     * Human readable anomaly type
+     */
     public function getTypeNameAttribute()
     {
         $types = [
@@ -55,6 +66,9 @@ class Anomaly extends Model
         return $types[$this->type] ?? $this->type;
     }
 
+    /**
+     * Severity color badge
+     */
     public function getSeverityColorAttribute()
     {
         $colors = [
@@ -67,6 +81,9 @@ class Anomaly extends Model
         return $colors[$this->severity] ?? 'secondary';
     }
 
+    /**
+     * Status color badge
+     */
     public function getStatusColorAttribute()
     {
         $colors = [

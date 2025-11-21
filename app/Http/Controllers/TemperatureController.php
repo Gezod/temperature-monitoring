@@ -110,7 +110,7 @@ class TemperatureController extends Controller
 
         $timestamp = Carbon::parse($data['timestamp']);
 
-        Temperature::create([
+        $temperature = Temperature::create([
             'machine_id' => $data['machine_id'],
             'temperature_value' => $data['temperature_value'],
             'timestamp' => $timestamp,
@@ -118,6 +118,9 @@ class TemperatureController extends Controller
             'reading_time' => $timestamp->format('H:i:s'),
             'validation_status' => 'manual_entry',
         ]);
+
+        // Run anomaly check on the new temperature reading
+        $this->anomalyService->checkSingleReading($temperature);
 
         return response()->json(['message' => 'Data suhu berhasil disimpan']);
     }
@@ -142,7 +145,6 @@ class TemperatureController extends Controller
                 'machine_id' => $request->machine_id
             ]);
 
-
             if ($response->failed()) {
                 return response()->json(['error' => 'Gagal menghubungi Python API'], 500);
             }
@@ -151,24 +153,28 @@ class TemperatureController extends Controller
             $importedCount = 0;
 
             foreach ($data['temperature_data'] as $item) {
-                Temperature::create([
+                $timestamp = Carbon::parse($item['timestamp']);
+
+                $temperature = Temperature::create([
                     'machine_id' => $item['machine_id'] ?? $request->machine_id,
                     'temperature_value' => $item['temperature'] ?? null,
-                    'timestamp' => $item['timestamp'] ?? now(),
-                    'reading_date' => Carbon::parse($item['timestamp'])->format('Y-m-d'),
-                    'reading_time' => Carbon::parse($item['timestamp'])->format('H:i:s'),
-                    'validation_status' => 'pending', // Default status untuk data import
+                    'timestamp' => $timestamp,
+                    'reading_date' => $timestamp->format('Y-m-d'),
+                    'reading_time' => $timestamp->format('H:i:s'),
+                    'validation_status' => 'pending',
                 ]);
+
+                // Run anomaly check on imported temperature
+                $this->anomalyService->checkSingleReading($temperature);
                 $importedCount++;
             }
 
             $machine = Machine::findOrFail($request->machine_id);
-            $this->anomalyService->checkMachineAnomalies($machine, Carbon::now()->subDays(7));
             $this->updateMonthlySummariesForMachine($machine);
 
             return response()->json([
                 'success' => true,
-                'message' => "Imported {$importedCount} readings successfully."
+                'message' => "Imported {$importedCount} readings successfully with anomaly detection."
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -178,17 +184,16 @@ class TemperatureController extends Controller
         }
     }
 
-    public function validateTemperature($date){
+    public function validateTemperature($date)
+    {
         $dateObject = Carbon::parse($date);
-        $Temperature = Temperature::where('reading_date',$dateObject);
-        $Temperature->update([
-            'validation_status'=>'Validated',
-            'is_validated'=>1,
+        $temperatures = Temperature::where('reading_date', $dateObject);
+        $temperatures->update([
+            'validation_status' => 'validated',
+            'is_validated' => 1,
         ]);
-        return redirect('temperature/date/'.$date)->with('success', 'Data tanggal ' . $date . ' berhasil divalidasi!');
 
-
-
+        return redirect('temperature/date/' . $date)->with('success', 'Data tanggal ' . $date . ' berhasil divalidasi!');
     }
 
     /**
@@ -230,7 +235,6 @@ class TemperatureController extends Controller
         $temperature = Temperature::with(['machine.branch'])->findOrFail($id);
         $machines = Machine::with('branch')->where('is_active', true)->get();
 
-        // Validation status options
         $validationStatusOptions = [
             'pending' => 'Pending',
             'validated' => 'Validated',
@@ -256,9 +260,11 @@ class TemperatureController extends Controller
         } elseif ($request->validation_status === 'rejected') {
             $isValidated = 0;
         } else {
-            $isValidated = null; // needs_review, manual_entry, imported, edited
+            $isValidated = null;
         }
+
         $temperature = Temperature::findOrFail($id);
+        $oldTemperature = $temperature->temperature_value;
 
         $request->validate([
             'machine_id' => 'required|exists:machines,id',
@@ -277,14 +283,14 @@ class TemperatureController extends Controller
             'reading_time' => $timestamp->format('H:i:s'),
             'validation_status' => $request->validation_status,
             'validation_notes' => $request->validation_notes,
-              'is_validated' => $isValidated // Tambahkan ini
-
+            'is_validated' => $isValidated
         ]);
 
-        // Cek anomaly untuk pembacaan ini
-        // $this->anomalyService->checkSingleReading($temperature);
+        // If temperature value changed significantly, re-run anomaly check
+        if (abs($oldTemperature - $request->temperature_value) > 1) {
+            $this->anomalyService->checkSingleReading($temperature);
+        }
 
-        // Update summary bulanan
         $this->updateMonthlySummary($temperature);
 
         return redirect()->route('temperature.show', $temperature->id)
@@ -321,6 +327,26 @@ class TemperatureController extends Controller
             'temperature' => $r->temperature_value,
             'timestamp' => $r->timestamp->format('Y-m-d H:i:s')
         ]));
+    }
+
+    /**
+     * Get temperature readings for a specific machine (API endpoint)
+     */
+    public function getTemperatureReadingsForMachine($machineId)
+    {
+        $readings = Temperature::where('machine_id', $machineId)
+            ->orderBy('timestamp', 'desc')
+            ->limit(20)
+            ->get()
+            ->map(function($reading) {
+                return [
+                    'id' => $reading->id,
+                    'temperature' => $reading->temperature_value,
+                    'timestamp' => $reading->timestamp->format('Y-m-d H:i:s')
+                ];
+            });
+
+        return response()->json($readings);
     }
 
     /* ==============================

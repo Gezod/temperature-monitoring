@@ -8,9 +8,15 @@
         <i class="bi bi-exclamation-triangle text-warning"></i> Manajemen Anomali
     </h1>
     <div class="btn-group">
-        <button class="btn btn-info" onclick="runGlobalAnomalyCheck()">
+        <button class="btn btn-info" onclick="runAnomalyCheck()">
             <i class="bi bi-search"></i> Run Anomaly Check
         </button>
+        <button class="btn btn-danger" onclick="runGlobalAnomalyCheck()">
+            <i class="bi bi-lightning"></i> Global Check
+        </button>
+        <a href="{{ route('anomalies.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Add Anomaly
+        </a>
         <button class="btn btn-success" onclick="exportAnomalies()">
             <i class="bi bi-download"></i> Export Report
         </button>
@@ -45,10 +51,33 @@
     </div>
 </div>
 
+<!-- Anomaly Trends Chart -->
+{{-- <div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up"></i> Anomaly Trends (Last 30 Days)
+                </h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="updateTrendChart(7)">7 Days</button>
+                    <button class="btn btn-outline-primary active" onclick="updateTrendChart(30)">30 Days</button>
+                    <button class="btn btn-outline-success" onclick="downloadChart('trendChart', 'anomaly_trends')">
+                        <i class="bi bi-download"></i> Download
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="trendChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div> --}}
+
 <!-- Filter Section -->
 <div class="card mb-4">
     <div class="card-body">
-        <form method="GET" class="row g-3">
+        <form method="GET" class="row g-3" id="filterForm">
             <div class="col-md-2">
                 <label for="severity" class="form-label">Severity</label>
                 <select name="severity" id="severity" class="form-select">
@@ -149,9 +178,19 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <strong class="text-{{ $anomaly->temperatureReading->status == 'critical' ? 'danger' : ($anomaly->temperatureReading->status == 'warning' ? 'warning' : 'success') }}">
-                                        {{ number_format($anomaly->temperatureReading->temperature, 1) }}°C
-                                    </strong>
+                                    @php
+                                        $tempReading = null;
+                                        if ($anomaly->temperature_reading_id) {
+                                            $tempReading = \App\Models\Temperature::find($anomaly->temperature_reading_id);
+                                        }
+                                    @endphp
+                                    @if($tempReading)
+                                        <strong class="text-{{ $tempReading->temperature_value < $anomaly->machine->temp_min_normal || $tempReading->temperature_value > $anomaly->machine->temp_max_normal ? 'danger' : 'success' }}">
+                                            {{ number_format($tempReading->temperature_value, 1) }}°C
+                                        </strong>
+                                    @else
+                                        <span class="text-muted">N/A</span>
+                                    @endif
                                 </td>
                                 <td>
                                     <span class="badge bg-{{ $anomaly->status_color }}">
@@ -178,6 +217,10 @@
                                                 <i class="bi bi-check-circle"></i>
                                             </button>
                                         @endif
+                                        <a href="{{ route('anomalies.edit', $anomaly) }}"
+                                           class="btn btn-outline-secondary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
                                     </div>
                                 </td>
                             </tr>
@@ -199,60 +242,121 @@
     </div>
 </div>
 
-<!-- Acknowledge Modal -->
-<div class="modal fade" id="acknowledgeModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Acknowledge Anomaly</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="acknowledgeForm">
-                    <div class="mb-3">
-                        <label for="acknowledged_by" class="form-label">Acknowledged By</label>
-                        <input type="text" class="form-control" id="acknowledged_by" required>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-warning" onclick="submitAcknowledge()">Acknowledge</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Resolve Modal -->
-<div class="modal fade" id="resolveModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Resolve Anomaly</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="resolveForm">
-                    <div class="mb-3">
-                        <label for="resolution_notes" class="form-label">Resolution Notes</label>
-                        <textarea class="form-control" id="resolution_notes" rows="4" required
-                                  placeholder="Describe how the anomaly was resolved..."></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" onclick="submitResolve()">Resolve</button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Modals -->
+@include('anomalies.partials.acknowledge-modal')
+@include('anomalies.partials.resolve-modal')
 
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+let trendChart;
 let currentAnomalyId = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeTrendChart();
+});
+
+function initializeTrendChart() {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    const trendData = @json($trendData);
+
+    const labels = Object.keys(trendData).map(date =>
+        new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
+    );
+
+    const datasets = [
+        {
+            label: 'Critical',
+            data: Object.values(trendData).map(d => d.critical),
+            backgroundColor: 'rgba(255, 65, 108, 0.8)',
+            borderColor: '#ff416c',
+            fill: false
+        },
+        {
+            label: 'High',
+            data: Object.values(trendData).map(d => d.high),
+            backgroundColor: 'rgba(255, 147, 43, 0.8)',
+            borderColor: '#ff932b',
+            fill: false
+        },
+        {
+            label: 'Medium',
+            data: Object.values(trendData).map(d => d.medium),
+            backgroundColor: 'rgba(255, 217, 61, 0.8)',
+            borderColor: '#ffd93d',
+            fill: false
+        },
+        {
+            label: 'Low',
+            data: Object.values(trendData).map(d => d.low),
+            backgroundColor: 'rgba(17, 153, 142, 0.8)',
+            borderColor: '#11998e',
+            fill: false
+        }
+    ];
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Anomaly Detection Trends'
+                },
+                legend: {
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Anomalies'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+}
+
+function updateTrendChart(days) {
+    // Update active button
+    document.querySelectorAll('.btn-group .btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    fetch(`/anomalies/chart-data?days=${days}`)
+        .then(response => response.json())
+        .then(data => {
+            const labels = Object.keys(data).map(date =>
+                new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
+            );
+
+            trendChart.data.labels = labels;
+            trendChart.data.datasets[0].data = Object.values(data).map(d => d.critical);
+            trendChart.data.datasets[1].data = Object.values(data).map(d => d.high);
+            trendChart.data.datasets[2].data = Object.values(data).map(d => d.medium);
+            trendChart.data.datasets[3].data = Object.values(data).map(d => d.low);
+
+            trendChart.update();
+        })
+        .catch(error => console.error('Error updating chart:', error));
+}
 
 function acknowledgeAnomaly(anomalyId) {
     currentAnomalyId = anomalyId;
@@ -328,10 +432,126 @@ function submitResolve() {
     });
 }
 
+function runAnomalyCheck() {
+    const machineId = document.getElementById('machine_id').value;
+
+    Swal.fire({
+        title: 'Run Anomaly Check?',
+        text: machineId
+            ? 'Anomaly check akan dijalankan pada mesin terpilih.'
+            : 'Anomaly check akan dijalankan untuk semua mesin.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Ya, jalankan!',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#0d6efd',
+        cancelButtonColor: '#6c757d'
+    }).then(result => {
+        if (result.isConfirmed) {
+
+            Swal.fire({
+                title: 'Processing...',
+                text: 'Sedang menjalankan anomaly check...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            const params = machineId ? `?machine_id=${machineId}` : '';
+
+            fetch(`/anomalies/run-check${params}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                Swal.close();
+
+                Swal.fire({
+                    icon: data.success ? 'success' : 'error',
+                    title: data.success ? 'Berhasil!' : 'Gagal!',
+                    text: data.message
+                }).then(() => {
+                    if (data.success) location.reload();
+                });
+            })
+            .catch(error => {
+                Swal.close();
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message
+                });
+            });
+        }
+    });
+}
+
+
 function runGlobalAnomalyCheck() {
-    if (confirm('This will run anomaly detection on all active machines. This may take a few minutes. Continue?')) {
-        // Implementation would call a global anomaly check endpoint
-        alert('Global anomaly check started. You will be notified when complete.');
+    Swal.fire({
+        title: 'Global Anomaly Check?',
+        text: 'Ini akan menjalankan anomaly detection pada semua mesin aktif. Proses mungkin memakan waktu cukup lama.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Ya, lanjutkan!',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d'
+    }).then(result => {
+        if (result.isConfirmed) {
+
+            Swal.fire({
+                title: 'Processing...',
+                text: 'Sedang menjalankan global anomaly check...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            fetch('/anomalies/run-check', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                Swal.close();
+
+                Swal.fire({
+                    icon: data.success ? 'success' : 'error',
+                    title: data.success ? 'Selesai!' : 'Gagal!',
+                    text: data.message
+                }).then(() => {
+                    if (data.success) location.reload();
+                });
+            })
+            .catch(error => {
+                Swal.close();
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message
+                });
+            });
+        }
+    });
+}
+
+function downloadChart(chartId, filename) {
+    const canvas = document.getElementById(chartId);
+    if (canvas) {
+        const link = document.createElement('a');
+        link.download = filename + '_' + new Date().toISOString().slice(0, 10) + '.png';
+        link.href = canvas.toDataURL();
+        link.click();
     }
 }
 

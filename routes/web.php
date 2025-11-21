@@ -53,15 +53,12 @@ Route::prefix('temperature/validation')->group(function () {
     Route::delete('/{sessionId}', [TemperatureValidationController::class, 'deleteValidation'])->name('temperature.validation.delete');
 });
 
-// API Routes for machine info
-Route::get('/api/machines/{machine}/info', [MachineController::class, 'apiMachineInfo'])->name('api.machine-info');
-
 // Anomaly Management Routes
-Route::get('/anomalies', [AnomalyController::class, 'index'])->name('anomalies.index');
-Route::get('/anomalies/{anomaly}', [AnomalyController::class, 'show'])->name('anomalies.show');
-Route::put('/anomalies/{anomaly}', [AnomalyController::class, 'update'])->name('anomalies.update');
+Route::resource('anomalies', AnomalyController::class);
 Route::patch('/anomalies/{anomaly}/acknowledge', [AnomalyController::class, 'acknowledge'])->name('anomalies.acknowledge');
 Route::patch('/anomalies/{anomaly}/resolve', [AnomalyController::class, 'resolve'])->name('anomalies.resolve');
+Route::post('/anomalies/run-check', [AnomalyController::class, 'runAnomalyCheck'])->name('anomalies.run-check');
+Route::get('/anomalies/chart-data', [AnomalyController::class, 'getChartData'])->name('anomalies.chart-data');
 
 // Maintenance Management Routes
 Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
@@ -92,6 +89,8 @@ Route::prefix('api')->group(function () {
     Route::get('/anomaly-stats', [AnomalyController::class, 'apiAnomalyStats'])->name('api.anomaly-stats');
     Route::get('/branch-performance', [BranchController::class, 'apiBranchPerformance'])->name('api.branch-performance');
     Route::get('/maintenance-insights', [MaintenanceController::class, 'apiMaintenanceInsights'])->name('api.maintenance-insights');
+    Route::get('/machines/{machine}/info', [MachineController::class, 'apiMachineInfo'])->name('api.machine-info');
+    Route::get('/temperature-readings/{machineId}', [TemperatureController::class, 'getTemperatureReadingsForMachine'])->name('api.temperature-readings');
 });
 
 // Profile route (placeholder)

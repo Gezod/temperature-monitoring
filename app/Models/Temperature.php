@@ -66,4 +66,8 @@ class Temperature extends Model
             return ucfirst(str_replace('_', ' ', $this->validation_status));
         }
     }
+    public function anomalies()
+    {
+        return $this->hasMany(Anomaly::class, 'temperature_reading_id');
+    }
 }
