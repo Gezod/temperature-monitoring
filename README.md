@@ -33,9 +33,9 @@ Sistem monitoring temperature real-time yang dibangun dengan Laravel sebagai bac
 ## 🛠️ Dependencies & Requirements
 
 ### Backend Requirements
-- **PHP** >= 8.0
-- **Laravel** >= 9.0
-- **MySQL** >= 5.7 atau **PostgreSQL** >= 12
+- **PHP** >= 8.2.4
+- **Laravel** >= 10.10
+- **MySQL** >= 5.2.1 atau **PostgreSQL** >= 12
 - **Composer** untuk dependency management
 
 ### Frontend Dependencies
