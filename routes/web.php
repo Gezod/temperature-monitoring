@@ -91,8 +91,12 @@ Route::prefix('api')->group(function () {
     Route::get('/maintenance-insights', [MaintenanceController::class, 'apiMaintenanceInsights'])->name('api.maintenance-insights');
     Route::get('/machines/{machine}/info', [MachineController::class, 'apiMachineInfo'])->name('api.machine-info');
     Route::get('/temperature-readings/{machineId}', [TemperatureController::class, 'getTemperatureReadingsForMachine'])->name('api.temperature-readings');
+
 });
 
+Route::get('/anomalies/test-transfer', [AnomalyController::class, 'testTransfer'])->name('anomalies.test-transfer');
+Route::post('/anomalies/emergency-transfer', [AnomalyController::class, 'emergencyTransfer'])->name('anomalies.emergency-transfer');
+Route::get('/anomalies/test-transfer-fixed', [AnomalyController::class, 'testTransferFixed'])->name('anomalies.test-transfer-fixed');
 // Profile route (placeholder)
 Route::get('/profile', function () {
     return view('profile.index');

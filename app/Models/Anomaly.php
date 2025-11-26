@@ -42,13 +42,12 @@ class Anomaly extends Model
 
     /**
      * Temperature Reading relationship
-     * Uses temperature_reading_id
+     * PERBAIKAN: Gunakan TemperatureReading model
      */
     public function temperatureReading(): BelongsTo
     {
-        return $this->belongsTo(Temperature::class, 'temperature_reading_id');
+        return $this->belongsTo(TemperatureReading::class, 'temperature_reading_id');
     }
-
 
     /**
      * Human readable anomaly type
@@ -60,7 +59,8 @@ class Anomaly extends Model
             'temperature_low' => 'Suhu Terlalu Rendah',
             'rapid_change' => 'Perubahan Suhu Cepat',
             'sensor_error' => 'Error Sensor',
-            'pattern_deviation' => 'Penyimpangan Pola'
+            'pattern_deviation' => 'Penyimpangan Pola',
+            'consecutive_abnormal' => 'Pembacaan Abnormal Berturut-turut'
         ];
 
         return $types[$this->type] ?? $this->type;

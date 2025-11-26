@@ -13,6 +13,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Event;
+use App\Events\TemperatureUpdated;
 use Carbon\Carbon;
 
 class TemperatureController extends Controller
@@ -253,50 +256,126 @@ class TemperatureController extends Controller
     }
 
     public function update(Request $request, $id)
-    {
-        $isValidated = null;
-        if ($request->validation_status === 'validated') {
-            $isValidated = 1;
-        } elseif ($request->validation_status === 'rejected') {
-            $isValidated = 0;
-        } else {
-            $isValidated = null;
-        }
+{
+    // VALIDATION
+    $request->validate([
+        'machine_id' => 'required|exists:machines,id',
+        'timestamp' => 'required|date',
+        'temperature_value' => 'required|numeric',
+        'validation_status' => 'required|in:pending,validated,rejected,needs_review,manual_entry,imported,edited',
+        'validation_notes' => 'nullable|string|max:500'
+    ]);
 
-        $temperature = Temperature::findOrFail($id);
-        $oldTemperature = $temperature->temperature_value;
+    $temperature = Temperature::findOrFail($id);
+    $oldData = $temperature->toArray(); // Simpan data lama
 
-        $request->validate([
-            'machine_id' => 'required|exists:machines,id',
-            'timestamp' => 'required|date',
-            'temperature_value' => 'required|numeric',
-            'validation_status' => 'required|in:pending,validated,rejected,needs_review,manual_entry,imported,edited'
-        ]);
+    // SIMPLIFY VALIDATION LOGIC
+    $isValidated = match($request->validation_status) {
+        'validated' => 1,
+        'rejected' => 0,
+        default => null
+    };
 
-        $timestamp = Carbon::parse($request->timestamp);
+    $timestamp = Carbon::parse($request->timestamp);
 
-        $temperature->update([
-            'machine_id' => $request->machine_id,
-            'temperature_value' => $request->temperature_value,
-            'timestamp' => $timestamp,
-            'reading_date' => $timestamp->format('Y-m-d'),
-            'reading_time' => $timestamp->format('H:i:s'),
-            'validation_status' => $request->validation_status,
-            'validation_notes' => $request->validation_notes,
-            'is_validated' => $isValidated
-        ]);
+    // UPDATE
+    $temperature->update([
+        'machine_id' => $request->machine_id,
+        'temperature_value' => $request->temperature_value,
+        'timestamp' => $timestamp,
+        'reading_date' => $timestamp->format('Y-m-d'),
+        'reading_time' => $timestamp->format('H:i:s'),
+        'validation_status' => $request->validation_status,
+        'validation_notes' => $request->validation_notes,
+        'is_validated' => $isValidated
+    ]);
 
-        // If temperature value changed significantly, re-run anomaly check
-        if (abs($oldTemperature - $request->temperature_value) > 1) {
-            $this->anomalyService->checkSingleReading($temperature);
-        }
+    // ✅ SELALU trigger event, biarkan Listener yang handle logicnya
+    event(new TemperatureUpdated($temperature, $oldData));
 
-        $this->updateMonthlySummary($temperature);
+    // UPDATE SUMMARY
+    $this->updateMonthlySummary($temperature);
 
-        return redirect()->route('temperature.show', $temperature->id)
-            ->with('success', 'Temperature reading updated successfully.');
+    return redirect()->route('temperature.show', $temperature->id)
+        ->with('success', 'Temperature reading updated successfully.');
+}
+/**
+ * Determine if anomaly check should be performed
+ */
+private function shouldCheckAnomaly($oldTemp, $newTemp, $oldStatus, $newStatus): bool
+{
+    // Always check if status changed to 'validated'
+    if ($oldStatus !== 'validated' && $newStatus === 'validated') {
+        return true;
     }
 
+    // Check if temperature changed significantly (more than 2°C)
+    if (abs($oldTemp - $newTemp) >= 2.0) {
+        return true;
+    }
+
+    // Check if status changed from rejected/needs_review to validated
+    if (in_array($oldStatus, ['rejected', 'needs_review']) && $newStatus === 'validated') {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Handle anomaly check for Temperature model
+ */
+private function checkAnomalyForTemperature(Temperature $temperature)
+{
+    // Cari atau buat TemperatureReading terkait
+    $reading = $this->findOrCreateTemperatureReading($temperature);
+
+    if ($reading) {
+        $anomalies = $this->anomalyService->checkSingleReading($reading);
+
+        if (count($anomalies) > 0) {
+            Log::info("Anomaly detected after temperature update ID: {$temperature->id}, anomalies: " . count($anomalies));
+
+            // Bisa tambahkan flash message atau notification
+            session()->flash('anomaly_warning',
+                count($anomalies) . ' anomaly detected after update!'
+            );
+        }
+
+        return count($anomalies);
+    }
+
+    return 0;
+}
+
+/**
+ * Find or create TemperatureReading from Temperature
+ */
+private function findOrCreateTemperatureReading(Temperature $temperature)
+{
+    // Coba cari existing reading
+    $reading = TemperatureReading::where('temperature_id', $temperature->id)->first();
+
+    if (!$reading) {
+        // Buat baru jika tidak ada
+        $reading = TemperatureReading::create([
+            'machine_id' => $temperature->machine_id,
+            'temperature_id' => $temperature->id, // Link ke temperature asli
+            'temperature' => $temperature->temperature_value,
+            'recorded_at' => $temperature->timestamp,
+            'reading_type' => 'manual_entry',
+            'is_anomaly' => false
+        ]);
+    } else {
+        // Update existing reading
+        $reading->update([
+            'temperature' => $temperature->temperature_value,
+            'recorded_at' => $temperature->timestamp
+        ]);
+    }
+
+    return $reading;
+}
     public function destroy($id)
     {
         $temperature = Temperature::findOrFail($id);

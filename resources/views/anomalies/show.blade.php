@@ -7,6 +7,18 @@
         <h1 class="h3 mb-0">
             <i class="bi bi-exclamation-triangle text-warning"></i> Anomaly Details
         </h1>
+        @if (session('success'))
+            <div class="alert alert-success">
+                {{ session('success') }}
+
+                @if (session('anomaly_detected'))
+                    <br>
+                    <small class="text-warning">
+                        ⚠️ {{ session('anomaly_count') }} anomaly detected during update!
+                    </small>
+                @endif
+            </div>
+        @endif
         <div class="btn-group">
             <a href="{{ route('anomalies.index') }}" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Back to List

@@ -89,7 +89,6 @@ class TemperatureValidationController extends Controller
                 ],
                 'redirect_url' => route('temperature.validation.review', $sessionId)
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
@@ -191,7 +190,6 @@ class TemperatureValidationController extends Controller
                 'message' => "Successfully imported {$importedCount} temperature readings",
                 'imported_count' => $importedCount
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
@@ -296,6 +294,9 @@ class TemperatureValidationController extends Controller
         $validations = $query->paginate(20);
         $machines = Machine::with('branch')->get();
 
-        return view('temperature.validation.history', compact('validations', 'machines'));
+        return view('layouts.temperature.validation.history', [
+            'validations' => $validations,
+            'machines' => $machines
+        ]);
     }
 }

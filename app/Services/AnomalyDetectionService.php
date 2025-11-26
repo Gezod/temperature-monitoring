@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Temperature;
+use App\Models\TemperatureReading;
 use App\Models\Machine;
 use App\Models\Anomaly;
 use App\Models\SystemAlert;
@@ -17,80 +17,157 @@ class AnomalyDetectionService
     public function __construct()
     {
         $this->config = [
-            'temp_normal_range_deviation' => 2, // deviasi dari range normal
-            'rapid_change_threshold' => 5, // perubahan °C dalam 1 jam
-            'pattern_deviation_threshold' => 2, // standar deviasi
-            'consecutive_readings_threshold' => 3, // jumlah pembacaan berturut-turut di luar normal
+            'temp_normal_range_deviation' => 2,
+            'rapid_change_threshold' => 5,
+            'pattern_deviation_threshold' => 2,
+            'consecutive_readings_threshold' => 3,
+            'min_temperature_threshold' => 5,
         ];
     }
 
     /**
-     * Check anomali untuk single reading
+     * Check anomali untuk semua temperature readings yang belum dianalisa
      */
-    public function checkSingleReading($temperature)
+    public function checkUnanalyzedReadings($days = 7)
     {
-        $machine = $temperature->machine;
+        $fromDate = Carbon::now()->subDays($days);
+
+        $readings = TemperatureReading::with('machine')
+            ->where('recorded_at', '>=', $fromDate)
+            ->whereDoesntHave('anomalies')
+            ->orderBy('recorded_at')
+            ->get();
+
+        $totalAnomalies = 0;
+
+        foreach ($readings as $reading) {
+            $anomalies = $this->checkSingleReading($reading);
+            $totalAnomalies += count($anomalies);
+        }
+
+        Log::info("Checked {$readings->count()} unanalyzed temperature readings, found {$totalAnomalies} anomalies");
+
+        return $totalAnomalies;
+    }
+    /**
+     * Check anomali untuk single reading - VERSION FIXED
+     */
+    public function checkSingleReading($temperatureReading)
+    {
+
+        if (
+            !$temperatureReading instanceof \App\Models\TemperatureReading &&
+            !$temperatureReading instanceof \App\Models\Temperature
+        ) {
+            Log::warning("Invalid parameter type: " . get_class($temperatureReading));
+            return [];
+        }
+
+        // Load machine relationship jika belum diload
+        if (!$temperatureReading->relationLoaded('machine')) {
+            $temperatureReading->load('machine');
+        }
+        // Load machine relationship jika belum diload
+        if (!$temperatureReading->relationLoaded('machine')) {
+            $temperatureReading->load('machine');
+        }
+
+        $machine = $temperatureReading->machine;
         $anomalies = [];
 
         if (!$machine) {
-            Log::warning("No machine found for temperature reading ID: {$temperature->id}");
+            Log::warning("No machine found for temperature reading ID: {$temperatureReading->id}");
             return $anomalies;
         }
 
-        // 1. Check temperature bounds (Critical)
-        if ($temperature->temperature_value < $machine->temp_critical_min) {
-            $anomalies[] = $this->createAnomaly($temperature, 'temperature_low', 'critical',
-                "Temperature critically low: {$temperature->temperature_value}°C (Critical minimum: {$machine->temp_critical_min}°C)",
+        $currentTemp = $temperatureReading->temperature;
+
+        // VALIDASI: Hanya proses jika suhu > 5°C
+        if ($currentTemp <= $this->config['min_temperature_threshold']) {
+            Log::info("Temperature {$currentTemp}°C is below threshold, skipping anomaly check");
+            return $anomalies;
+        }
+
+        Log::info("Checking anomaly for machine {$machine->name}, temperature: {$currentTemp}°C, normal range: {$machine->temp_min_normal}°C - {$machine->temp_max_normal}°C");
+
+        // ... (method anomaly detection lainnya tetap sama)
+        // 1. Check critical bounds
+        if ($currentTemp <= $machine->temp_critical_min) {
+            $anomalies[] = $this->createAnomaly(
+                $temperatureReading,
+                'temperature_low',
+                'critical',
+                "Temperature critically low: {$currentTemp}°C (Critical minimum: {$machine->temp_critical_min}°C)",
                 $this->getLowTempCauses(),
                 $this->getLowTempRecommendations()
             );
-        } elseif ($temperature->temperature_value > $machine->temp_critical_max) {
-            $anomalies[] = $this->createAnomaly($temperature, 'temperature_high', 'critical',
-                "Temperature critically high: {$temperature->temperature_value}°C (Critical maximum: {$machine->temp_critical_max}°C)",
+            Log::info("Critical low temperature anomaly detected: {$currentTemp}°C");
+        } elseif ($currentTemp >= $machine->temp_critical_max) {
+            $anomalies[] = $this->createAnomaly(
+                $temperatureReading,
+                'temperature_high',
+                'critical',
+                "Temperature critically high: {$currentTemp}°C (Critical maximum: {$machine->temp_critical_max}°C)",
                 $this->getHighTempCauses(),
                 $this->getHighTempRecommendations()
             );
+            Log::info("Critical high temperature anomaly detected: {$currentTemp}°C");
         }
 
-        // 2. Check normal range (High/Medium)
-        if ($temperature->temperature_value < $machine->temp_min_normal) {
-            $severity = abs($temperature->temperature_value - $machine->temp_min_normal) > 5 ? 'high' : 'medium';
-            $anomalies[] = $this->createAnomaly($temperature, 'temperature_low', $severity,
-                "Temperature below normal: {$temperature->temperature_value}°C (Normal minimum: {$machine->temp_min_normal}°C)",
+        // 2. Check normal range bounds
+        if ($currentTemp < $machine->temp_min_normal) {
+            $severity = ($machine->temp_min_normal - $currentTemp) > 5 ? 'high' : 'medium';
+            $anomalies[] = $this->createAnomaly(
+                $temperatureReading,
+                'temperature_low',
+                $severity,
+                "Temperature below normal: {$currentTemp}°C (Normal minimum: {$machine->temp_min_normal}°C)",
                 $this->getLowTempCauses(),
                 $this->getLowTempRecommendations()
             );
-        } elseif ($temperature->temperature_value > $machine->temp_max_normal) {
-            $severity = abs($temperature->temperature_value - $machine->temp_max_normal) > 5 ? 'high' : 'medium';
-            $anomalies[] = $this->createAnomaly($temperature, 'temperature_high', $severity,
-                "Temperature above normal: {$temperature->temperature_value}°C (Normal maximum: {$machine->temp_max_normal}°C)",
+            Log::info("Low temperature anomaly detected: {$currentTemp}°C");
+        } elseif ($currentTemp > $machine->temp_max_normal) {
+            $severity = ($currentTemp - $machine->temp_max_normal) > 5 ? 'high' : 'medium';
+            $anomalies[] = $this->createAnomaly(
+                $temperatureReading,
+                'temperature_high',
+                $severity,
+                "Temperature above normal: {$currentTemp}°C (Normal maximum: {$machine->temp_max_normal}°C)",
                 $this->getHighTempCauses(),
                 $this->getHighTempRecommendations()
             );
+            Log::info("High temperature anomaly detected: {$currentTemp}°C");
         }
 
-        // 3. Check rapid temperature changes
-        $rapidChangeAnomaly = $this->checkRapidChange($temperature);
-        if ($rapidChangeAnomaly) {
-            $anomalies[] = $rapidChangeAnomaly;
+        // 3. Check rapid changes
+        if (empty($anomalies)) {
+            $rapidChangeAnomaly = $this->checkRapidChange($temperatureReading);
+            if ($rapidChangeAnomaly) {
+                $anomalies[] = $rapidChangeAnomaly;
+            }
         }
 
         // 4. Check pattern deviation
-        $patternAnomaly = $this->checkPatternDeviation($temperature);
+        $patternAnomaly = $this->checkPatternDeviation($temperatureReading);
         if ($patternAnomaly) {
             $anomalies[] = $patternAnomaly;
         }
 
         // 5. Check consecutive abnormal readings
-        $consecutiveAnomaly = $this->checkConsecutiveAbnormalReadings($temperature);
+        $consecutiveAnomaly = $this->checkConsecutiveAbnormalReadings($temperatureReading);
         if ($consecutiveAnomaly) {
             $anomalies[] = $consecutiveAnomaly;
         }
 
-        // Create system alerts for critical anomalies
-        foreach ($anomalies as $anomaly) {
-            if (in_array($anomaly->severity, ['critical', 'high'])) {
-                $this->createSystemAlert($anomaly);
+        // Update temperature reading status jika ada anomaly
+        if (!empty($anomalies)) {
+            $temperatureReading->update(['is_anomaly' => true]);
+
+            // Create system alerts for critical/high anomalies
+            foreach ($anomalies as $anomaly) {
+                if (in_array($anomaly->severity, ['critical', 'high'])) {
+                    $this->createSystemAlert($anomaly);
+                }
             }
         }
 
@@ -98,7 +175,15 @@ class AnomalyDetectionService
     }
 
     /**
-     * Check anomali untuk mesin dalam rentang waktu tertentu
+     * Check semua mesin aktif - METHOD YANG DIPERBAIKI
+     */
+    public function checkAllMachines()
+    {
+        return $this->checkUnanalyzedReadings(7);
+    }
+
+    /**
+     * Check mesin tertentu - METHOD YANG DIPERBAIKI
      */
     public function checkMachineAnomalies(Machine $machine, Carbon $fromDate = null)
     {
@@ -106,54 +191,39 @@ class AnomalyDetectionService
             $fromDate = Carbon::now()->subDays(7);
         }
 
-        $temperatures = Temperature::where('machine_id', $machine->id)
-            ->where('timestamp', '>=', $fromDate)
-            ->orderBy('timestamp')
+        $readings = TemperatureReading::with('machine')
+            ->where('machine_id', $machine->id)
+            ->where('recorded_at', '>=', $fromDate)
+            ->whereDoesntHave('anomalies')
+            ->orderBy('recorded_at')
             ->get();
 
         $totalAnomalies = 0;
 
-        foreach ($temperatures as $temperature) {
-            $anomalies = $this->checkSingleReading($temperature);
+        foreach ($readings as $reading) {
+            $anomalies = $this->checkSingleReading($reading);
             $totalAnomalies += count($anomalies);
         }
 
-        Log::info("Checked {$temperatures->count()} temperature readings for machine {$machine->name}, found {$totalAnomalies} anomalies");
+        Log::info("Machine {$machine->name}: Checked {$readings->count()} readings, found {$totalAnomalies} anomalies");
 
         return $totalAnomalies;
     }
 
     /**
-     * Check semua mesin aktif
+     * Check perubahan suhu yang cepat - VERSION FIXED
      */
-    public function checkAllMachines()
+    private function checkRapidChange(TemperatureReading $temperatureReading)
     {
-        $machines = Machine::where('is_active', true)->get();
-        $totalAnomalies = 0;
-
-        foreach ($machines as $machine) {
-            $totalAnomalies += $this->checkMachineAnomalies($machine);
-        }
-
-        Log::info("Total anomalies found across all machines: {$totalAnomalies}");
-
-        return $totalAnomalies;
-    }
-
-    /**
-     * Check perubahan suhu yang cepat
-     */
-    private function checkRapidChange($temperature)
-    {
-        $recentReading = Temperature::where('machine_id', $temperature->machine_id)
-            ->where('timestamp', '<', $temperature->timestamp)
-            ->where('timestamp', '>=', $temperature->timestamp->subHours(2))
-            ->orderBy('timestamp', 'desc')
+        $recentReading = TemperatureReading::where('machine_id', $temperatureReading->machine_id)
+            ->where('recorded_at', '<', $temperatureReading->recorded_at)
+            ->where('recorded_at', '>=', $temperatureReading->recorded_at->subHours(2))
+            ->orderBy('recorded_at', 'desc')
             ->first();
 
         if ($recentReading) {
-            $tempChange = abs($temperature->temperature_value - $recentReading->temperature_value);
-            $timeChange = $temperature->timestamp->diffInMinutes($recentReading->timestamp);
+            $tempChange = abs($temperatureReading->temperature - $recentReading->temperature); // GUNAKAN 'temperature'
+            $timeChange = $temperatureReading->recorded_at->diffInMinutes($recentReading->recorded_at);
 
             if ($timeChange > 0) {
                 $changeRate = $tempChange / ($timeChange / 60); // per hour
@@ -161,7 +231,10 @@ class AnomalyDetectionService
                 if ($changeRate >= $this->config['rapid_change_threshold']) {
                     $severity = $changeRate > 10 ? 'high' : 'medium';
 
-                    return $this->createAnomaly($temperature, 'rapid_change', $severity,
+                    return $this->createAnomaly(
+                        $temperatureReading,
+                        'rapid_change',
+                        $severity,
                         "Rapid temperature change: {$tempChange}°C in {$timeChange} minutes (Rate: " . number_format($changeRate, 1) . "°C/hour)",
                         $this->getRapidChangeCauses(),
                         $this->getRapidChangeRecommendations()
@@ -174,38 +247,41 @@ class AnomalyDetectionService
     }
 
     /**
-     * Check penyimpangan pola suhu
+     * Check penyimpangan pola suhu - VERSION FIXED
      */
-    private function checkPatternDeviation($temperature)
+    private function checkPatternDeviation(TemperatureReading $temperatureReading)
     {
         // Get historical data for the same time pattern
-        $historicalTemps = Temperature::where('machine_id', $temperature->machine_id)
-            ->whereRaw('HOUR(timestamp) BETWEEN ? AND ?', [
-                $temperature->timestamp->hour - 1,
-                $temperature->timestamp->hour + 1
+        $historicalTemps = TemperatureReading::where('machine_id', $temperatureReading->machine_id)
+            ->whereRaw('HOUR(recorded_at) BETWEEN ? AND ?', [
+                $temperatureReading->recorded_at->hour - 1,
+                $temperatureReading->recorded_at->hour + 1
             ])
-            ->where('timestamp', '<', $temperature->timestamp->subDays(7))
-            ->where('timestamp', '>=', $temperature->timestamp->subDays(30))
-            ->pluck('temperature_value');
+            ->where('recorded_at', '<', $temperatureReading->recorded_at->subDays(7))
+            ->where('recorded_at', '>=', $temperatureReading->recorded_at->subDays(30))
+            ->pluck('temperature'); // GUNAKAN 'temperature'
 
         if ($historicalTemps->count() < 5) {
-            return null; // Not enough historical data
+            return null;
         }
 
         $mean = $historicalTemps->avg();
-        $variance = $historicalTemps->map(function($temp) use ($mean) {
+        $variance = $historicalTemps->map(function ($temp) use ($mean) {
             return pow($temp - $mean, 2);
         })->avg();
 
         $stdDev = sqrt($variance);
-        $zScore = $stdDev > 0 ? abs($temperature->temperature_value - $mean) / $stdDev : 0;
+        $zScore = $stdDev > 0 ? abs($temperatureReading->temperature - $mean) / $stdDev : 0; // GUNAKAN 'temperature'
 
         if ($zScore > $this->config['pattern_deviation_threshold']) {
             $severity = $zScore > 3 ? 'high' : 'medium';
 
-            return $this->createAnomaly($temperature, 'pattern_deviation', $severity,
-                "Temperature deviates from historical pattern: {$temperature->temperature_value}°C (Expected: " .
-                number_format($mean, 1) . "±" . number_format($stdDev, 1) . "°C, Z-score: " . number_format($zScore, 2) . ")",
+            return $this->createAnomaly(
+                $temperatureReading,
+                'pattern_deviation',
+                $severity,
+                "Temperature deviates from historical pattern: {$temperatureReading->temperature}°C (Expected: " . // GUNAKAN 'temperature'
+                    number_format($mean, 1) . "±" . number_format($stdDev, 1) . "°C, Z-score: " . number_format($zScore, 2) . ")",
                 $this->getPatternDeviationCauses(),
                 $this->getPatternDeviationRecommendations()
             );
@@ -215,15 +291,15 @@ class AnomalyDetectionService
     }
 
     /**
-     * Check pembacaan abnormal berturut-turut
+     * Check pembacaan abnormal berturut-turut - VERSION FIXED
      */
-    private function checkConsecutiveAbnormalReadings($temperature)
+    private function checkConsecutiveAbnormalReadings(TemperatureReading $temperatureReading)
     {
-        $machine = $temperature->machine;
+        $machine = $temperatureReading->machine;
 
-        $recentReadings = Temperature::where('machine_id', $temperature->machine_id)
-            ->where('timestamp', '<=', $temperature->timestamp)
-            ->orderBy('timestamp', 'desc')
+        $recentReadings = TemperatureReading::where('machine_id', $temperatureReading->machine_id)
+            ->where('recorded_at', '<=', $temperatureReading->recorded_at)
+            ->orderBy('recorded_at', 'desc')
             ->limit($this->config['consecutive_readings_threshold'])
             ->get();
 
@@ -233,16 +309,21 @@ class AnomalyDetectionService
 
         $abnormalCount = 0;
         foreach ($recentReadings as $reading) {
-            if ($reading->temperature_value < $machine->temp_min_normal ||
-                $reading->temperature_value > $machine->temp_max_normal) {
+            if (
+                $reading->temperature < $machine->temp_min_normal || // GUNAKAN 'temperature'
+                $reading->temperature > $machine->temp_max_normal
+            ) { // GUNAKAN 'temperature'
                 $abnormalCount++;
             } else {
-                break; // Stop if we find a normal reading
+                break;
             }
         }
 
         if ($abnormalCount >= $this->config['consecutive_readings_threshold']) {
-            return $this->createAnomaly($temperature, 'consecutive_abnormal', 'high',
+            return $this->createAnomaly(
+                $temperatureReading,
+                'consecutive_abnormal',
+                'high',
                 "Consecutive abnormal readings detected: {$abnormalCount} readings outside normal range",
                 "Equipment malfunction, sensor drift, environmental changes, system failure.",
                 "Immediate inspection required, check equipment status, verify sensor calibration, review maintenance schedule."
@@ -253,36 +334,47 @@ class AnomalyDetectionService
     }
 
     /**
-     * Create anomaly record
+     * Create anomaly record - VERSION FIXED
      */
-    private function createAnomaly($temperature, $type, $severity, $description, $causes, $recommendations)
+    private function createAnomaly(TemperatureReading $temperatureReading, $type, $severity, $description, $causes, $recommendations)
     {
         // Check if similar anomaly already exists (to avoid duplicates)
-        $existingAnomaly = Anomaly::where('machine_id', $temperature->machine_id)
+        $existingAnomaly = Anomaly::where('machine_id', $temperatureReading->machine_id)
+            ->where('temperature_reading_id', $temperatureReading->id)
             ->where('type', $type)
             ->where('detected_at', '>=', now()->subHours(1))
             ->where('status', '!=', 'resolved')
             ->first();
 
         if ($existingAnomaly) {
+            Log::info("Duplicate anomaly prevented for reading ID: {$temperatureReading->id}, type: {$type}");
             return $existingAnomaly;
         }
 
-        return Anomaly::create([
-            'machine_id' => $temperature->machine_id,
-            'temperature_reading_id' => $temperature->id,
-            'type' => $type,
-            'severity' => $severity,
-            'description' => $description,
-            'possible_causes' => $causes,
-            'recommendations' => $recommendations,
-            'status' => 'new',
-            'detected_at' => now()
-        ]);
+        try {
+            $anomaly = Anomaly::create([
+                'machine_id' => $temperatureReading->machine_id,
+                'temperature_reading_id' => $temperatureReading->id, // INI TIDAK AKAN KOSONG LAGI
+                'type' => $type,
+                'severity' => $severity,
+                'description' => $description,
+                'possible_causes' => $causes,
+                'recommendations' => $recommendations,
+                'status' => 'new',
+                'detected_at' => $temperatureReading->recorded_at // GUNAKAN WAKTU RECORDING
+            ]);
+
+            Log::info("Anomaly created: ID {$anomaly->id} for reading ID: {$temperatureReading->id}");
+
+            return $anomaly;
+        } catch (\Exception $e) {
+            Log::error("Failed to create anomaly: " . $e->getMessage());
+            return null;
+        }
     }
 
     /**
-     * Create system alert
+     * Create system alert - VERSION FIXED
      */
     private function createSystemAlert(Anomaly $anomaly)
     {
@@ -302,7 +394,7 @@ class AnomalyDetectionService
                 'anomaly_id' => $anomaly->id,
                 'machine_id' => $anomaly->machine_id,
                 'temperature' => $anomaly->temperature_reading_id ?
-                    Temperature::find($anomaly->temperature_reading_id)?->temperature_value : null,
+                    TemperatureReading::find($anomaly->temperature_reading_id)?->temperature : null, // GUNAKAN 'temperature'
                 'severity' => $anomaly->severity
             ]
         ]);
@@ -352,10 +444,10 @@ class AnomalyDetectionService
     public function getTrendingAnomalies($days = 30)
     {
         return Anomaly::select(
-                DB::raw('DATE(detected_at) as date'),
-                DB::raw('COUNT(*) as count'),
-                'severity'
-            )
+            DB::raw('DATE(detected_at) as date'),
+            DB::raw('COUNT(*) as count'),
+            'severity'
+        )
             ->where('detected_at', '>=', now()->subDays($days))
             ->groupBy('date', 'severity')
             ->orderBy('date')
