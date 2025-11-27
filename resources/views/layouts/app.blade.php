@@ -449,11 +449,11 @@
                         <i class="bi bi-exclamation-triangle"></i> Anomali (Anomalies)
                     </a>
                 </li>
-                <li class="nav-item">
+                <!-- <li class="nav-item">
                     <a class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}" href="{{ route('maintenance.index') }}">
                         <i class="bi bi-tools"></i> Pemeliharaan (Maintenance)
                     </a>
-                </li>
+                </li> -->
                 <li class="nav-item">
                     <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}" href="{{ route('branch-comparison') }}">
                         <i class="bi bi-bar-chart"></i> Perbandingan Cabang (Branch Comparison)

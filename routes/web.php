@@ -59,6 +59,15 @@ Route::patch('/anomalies/{anomaly}/acknowledge', [AnomalyController::class, 'ack
 Route::patch('/anomalies/{anomaly}/resolve', [AnomalyController::class, 'resolve'])->name('anomalies.resolve');
 Route::post('/anomalies/run-check', [AnomalyController::class, 'runAnomalyCheck'])->name('anomalies.run-check');
 Route::get('/anomalies/chart-data', [AnomalyController::class, 'getChartData'])->name('anomalies.chart-data');
+Route::post('/sync-temperature', function () {
+    Artisan::call('sync:temperature-readings');
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Sync command executed!'
+    ]);
+});
+
+
 
 // Maintenance Management Routes
 Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');

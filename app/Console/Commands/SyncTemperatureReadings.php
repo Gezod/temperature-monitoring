@@ -43,6 +43,7 @@ class SyncTemperatureReadings extends Command
             'temperature' => $temperature->temperature_value,
             'recorded_at' => $temperature->timestamp,
             'reading_type' => 'manual_entry',
+            'source_file' => 'temperature_source',
             'is_anomaly' => false,
             'created_at' => now(),
             'updated_at' => now()
