@@ -185,13 +185,13 @@
                                         @php
                                             $tempReading = null;
                                             if ($anomaly->temperature_reading_id) {
-                                                $tempReading = \App\Models\Temperature::find($anomaly->temperature_reading_id);
+                                                $tempReading = \App\Models\TemperatureReading::find($anomaly->temperature_reading_id);
                                             }
                                         @endphp
                                         @if($tempReading)
                                             <strong
-                                                class="text-{{ $tempReading->temperature_value < $anomaly->machine->temp_min_normal || $tempReading->temperature_value > $anomaly->machine->temp_max_normal ? 'danger' : 'success' }}">
-                                                {{ number_format($tempReading->temperature_value, 1) }}°C
+                                                class="text-{{ $tempReading->temperature < $anomaly->machine->temp_min_normal || $tempReading->temperature > $anomaly->machine->temp_max_normal ? 'danger' : 'success' }}">
+                                                {{ number_format($tempReading->temperature, 1) }}°C
                                             </strong>
                                         @else
                                             <span class="text-muted">N/A</span>
