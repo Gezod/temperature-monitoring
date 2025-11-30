@@ -59,6 +59,10 @@ Route::patch('/anomalies/{anomaly}/resolve', [AnomalyController::class, 'resolve
 Route::post('/anomalies/run-check', [AnomalyController::class, 'runAnomalyCheck'])->name('anomalies.run-check');
 Route::get('/anomalies/chart-data', [AnomalyController::class, 'getChartData'])->name('anomalies.chart-data');
 
+// ✅ NEW: Duplicate prevention routes
+Route::get('/anomalies/duplicate-stats', [AnomalyController::class, 'getDuplicateStats'])->name('anomalies.duplicate-stats');
+Route::post('/anomalies/cleanup-duplicates', [AnomalyController::class, 'cleanupDuplicates'])->name('anomalies.cleanup-duplicates');
+
 Route::post('/sync-temperature', function () {
     Artisan::call('sync:temperature-readings');
     return response()->json([

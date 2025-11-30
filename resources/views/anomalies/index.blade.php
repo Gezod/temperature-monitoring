@@ -17,6 +17,13 @@
             <button class="btn btn-info" onclick="runSync()">
                 <i class="bi bi-info"></i> Refresh Check
             </button>
+            <!-- ✅ NEW: Duplicate management buttons -->
+            <button class="btn btn-warning" onclick="showDuplicateStats()">
+                <i class="bi bi-copy"></i> Duplicate Stats
+            </button>
+            <button class="btn btn-secondary" onclick="cleanupDuplicates()">
+                <i class="bi bi-trash3"></i> Cleanup
+            </button>
 
             <a href="{{ route('anomalies.create') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg"></i> Add Anomaly
@@ -54,29 +61,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Anomaly Trends Chart -->
-    {{-- <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="bi bi-graph-up"></i> Anomaly Trends (Last 30 Days)
-                    </h5>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" onclick="updateTrendChart(7)">7 Days</button>
-                        <button class="btn btn-outline-primary active" onclick="updateTrendChart(30)">30 Days</button>
-                        <button class="btn btn-outline-success" onclick="downloadChart('trendChart', 'anomaly_trends')">
-                            <i class="bi bi-download"></i> Download
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <canvas id="trendChart" height="100"></canvas>
-                </div>
-            </div>
-        </div>
-    </div> --}}
 
     <!-- Filter Section -->
     <div class="card mb-4">
@@ -248,6 +232,7 @@
     <!-- Modals -->
     @include('anomalies.partials.acknowledge-modal')
     @include('anomalies.partials.resolve-modal')
+    @include('anomalies.partials.duplicate-stats-modal')
 
 @endsection
 
@@ -257,109 +242,6 @@
     <script>
         let trendChart;
         let currentAnomalyId = null;
-
-        document.addEventListener('DOMContentLoaded', function () {
-            initializeTrendChart();
-        });
-
-        function initializeTrendChart() {
-            const ctx = document.getElementById('trendChart').getContext('2d');
-            const trendData = @json($trendData);
-
-            const labels = Object.keys(trendData).map(date =>
-                new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
-            );
-
-            const datasets = [
-                {
-                    label: 'Critical',
-                    data: Object.values(trendData).map(d => d.critical),
-                    backgroundColor: 'rgba(255, 65, 108, 0.8)',
-                    borderColor: '#ff416c',
-                    fill: false
-                },
-                {
-                    label: 'High',
-                    data: Object.values(trendData).map(d => d.high),
-                    backgroundColor: 'rgba(255, 147, 43, 0.8)',
-                    borderColor: '#ff932b',
-                    fill: false
-                },
-                {
-                    label: 'Medium',
-                    data: Object.values(trendData).map(d => d.medium),
-                    backgroundColor: 'rgba(255, 217, 61, 0.8)',
-                    borderColor: '#ffd93d',
-                    fill: false
-                },
-                {
-                    label: 'Low',
-                    data: Object.values(trendData).map(d => d.low),
-                    backgroundColor: 'rgba(17, 153, 142, 0.8)',
-                    borderColor: '#11998e',
-                    fill: false
-                }
-            ];
-
-            trendChart = new Chart(ctx, {
-                type: 'line',
-                data: { labels, datasets },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Anomaly Detection Trends'
-                        },
-                        legend: {
-                            position: 'top'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Number of Anomalies'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            }
-                        }
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    }
-                }
-            });
-        }
-
-        function updateTrendChart(days) {
-            // Update active button
-            document.querySelectorAll('.btn-group .btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-
-            fetch(`/anomalies/chart-data?days=${days}`)
-                .then(response => response.json())
-                .then(data => {
-                    const labels = Object.keys(data).map(date =>
-                        new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
-                    );
-
-                    trendChart.data.labels = labels;
-                    trendChart.data.datasets[0].data = Object.values(data).map(d => d.critical);
-                    trendChart.data.datasets[1].data = Object.values(data).map(d => d.high);
-                    trendChart.data.datasets[2].data = Object.values(data).map(d => d.medium);
-                    trendChart.data.datasets[3].data = Object.values(data).map(d => d.low);
-
-                    trendChart.update();
-                })
-                .catch(error => console.error('Error updating chart:', error));
-        }
 
         function acknowledgeAnomaly(anomalyId) {
             currentAnomalyId = anomalyId;
@@ -441,8 +323,8 @@
             Swal.fire({
                 title: 'Jalankan Sync + Anomaly Check?',
                 text: machineId
-                    ? 'Proses akan dijalankan pada mesin terpilih.'
-                    : 'Proses akan dijalankan untuk semua mesin.',
+                    ? 'Proses akan dijalankan pada mesin terpilih dengan duplicate prevention.'
+                    : 'Proses akan dijalankan untuk semua mesin dengan duplicate prevention.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Ya, jalankan!',
@@ -454,7 +336,7 @@
 
                     Swal.fire({
                         title: 'Processing...',
-                        text: 'Sedang menjalankan proses...',
+                        text: 'Sedang menjalankan proses dengan duplicate check...',
                         allowOutsideClick: false,
                         allowEscapeKey: false,
                         didOpen: () => Swal.showLoading()
@@ -475,7 +357,7 @@
                                 throw new Error("Sync gagal dijalankan.");
                             }
 
-                            // 2️⃣ Lanjutkan ke ANOMALY CHECK
+                            // 2️⃣ Lanjutkan ke ANOMALY CHECK dengan duplicate prevention
                             const params = machineId ? `?machine_id=${machineId}` : '';
 
                             return fetch(`/anomalies/run-check${params}`, {
@@ -490,10 +372,20 @@
                         .then(anomalyData => {
                             Swal.close();
 
+                            let message = anomalyData.message;
+                            if (anomalyData.duplicate_stats) {
+                                message += `\n\nDuplicate Prevention Stats:`;
+                                message += `\n- Today's anomalies: ${anomalyData.duplicate_stats.today_count}`;
+                                if (anomalyData.duplicate_stats.by_type) {
+                                    message += `\n- By type: ${Object.entries(anomalyData.duplicate_stats.by_type).map(([k,v]) => `${k}:${v}`).join(', ')}`;
+                                }
+                            }
+
                             Swal.fire({
                                 icon: anomalyData.success ? 'success' : 'error',
                                 title: anomalyData.success ? 'Berhasil!' : 'Gagal!',
-                                text: anomalyData.message
+                                text: message,
+                                width: '600px'
                             }).then(() => {
                                 if (anomalyData.success) location.reload();
                             });
@@ -510,11 +402,10 @@
             });
         }
 
-
         function runGlobalAnomalyCheck() {
             Swal.fire({
                 title: 'Global Anomaly Check?',
-                text: 'Ini akan menjalankan anomaly detection pada semua mesin aktif. Proses mungkin memakan waktu cukup lama.',
+                text: 'Ini akan menjalankan anomaly detection pada semua mesin dengan duplicate prevention. Proses mungkin memakan waktu cukup lama.',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonText: 'Ya, lanjutkan!',
@@ -526,7 +417,7 @@
 
                     Swal.fire({
                         title: 'Processing...',
-                        text: 'Sedang menjalankan global anomaly check...',
+                        text: 'Sedang menjalankan global anomaly check dengan duplicate prevention...',
                         allowOutsideClick: false,
                         allowEscapeKey: false,
                         didOpen: () => Swal.showLoading()
@@ -543,10 +434,17 @@
                         .then(data => {
                             Swal.close();
 
+                            let message = data.message;
+                            if (data.duplicate_stats) {
+                                message += `\n\nDuplicate Prevention Active:`;
+                                message += `\n- Config: ${JSON.stringify(data.duplicate_stats.config, null, 2)}`;
+                            }
+
                             Swal.fire({
                                 icon: data.success ? 'success' : 'error',
                                 title: data.success ? 'Selesai!' : 'Gagal!',
-                                text: data.message
+                                text: message,
+                                width: '600px'
                             }).then(() => {
                                 if (data.success) location.reload();
                             });
@@ -607,6 +505,134 @@
                                 icon: 'error'
                             });
                             console.error(err);
+                        });
+                }
+            });
+        }
+
+        // ✅ NEW: Duplicate management functions
+        function showDuplicateStats() {
+            const machineId = document.getElementById('machine_id').value;
+            const params = machineId ? `?machine_id=${machineId}&days=7` : '?days=7';
+
+            fetch(`/anomalies/duplicate-stats${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('duplicateStatsContent').innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>General Stats</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Total Anomalies:</strong> ${data.total_anomalies}</li>
+                                    <li><strong>Today's Count:</strong> ${data.today_count}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Duplicate Prevention Config</h6>
+                                <ul class="list-unstyled small">
+                                    <li><strong>Check Window:</strong> ${data.config.duplicate_check_hours} hours</li>
+                                    <li><strong>Temp Tolerance:</strong> ${data.config.temperature_tolerance}°C</li>
+                                    <li><strong>Similar Window:</strong> ${data.config.similar_anomaly_window_hours} hours</li>
+                                    <li><strong>Daily Limit:</strong> ${data.config.max_same_type_per_day} per type</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <h6>By Type</h6>
+                                <ul class="list-unstyled small">
+                                    ${Object.entries(data.by_type || {}).map(([type, count]) =>
+                                        `<li>${type}: ${count}</li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>By Status</h6>
+                                <ul class="list-unstyled small">
+                                    ${Object.entries(data.by_status || {}).map(([status, count]) =>
+                                        `<li>${status}: ${count}</li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                    new bootstrap.Modal(document.getElementById('duplicateStatsModal')).show();
+                })
+                .catch(error => {
+                    console.error('Error fetching duplicate stats:', error);
+                    alert('Error fetching duplicate statistics');
+                });
+        }
+
+        function cleanupDuplicates() {
+            Swal.fire({
+                title: 'Cleanup Duplicate Anomalies?',
+                text: 'Ini akan menghapus anomali duplikat berdasarkan kriteria yang telah ditetapkan.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Preview First (Dry Run)',
+                cancelButtonText: 'Cancel',
+                showDenyButton: true,
+                denyButtonText: 'Delete Now',
+                confirmButtonColor: '#17a2b8',
+                denyButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d'
+            }).then(result => {
+                if (result.isConfirmed || result.isDenied) {
+                    const dryRun = result.isConfirmed;
+
+                    Swal.fire({
+                        title: 'Processing...',
+                        text: dryRun ? 'Analyzing duplicates...' : 'Cleaning up duplicates...',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    fetch('/anomalies/cleanup-duplicates', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        },
+                        body: JSON.stringify({ dry_run: dryRun })
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            Swal.close();
+
+                            if (data.success) {
+                                const exact = data.data.exact_count || 0;
+                                const similar = data.data.similar_count || 0;
+                                const total = exact + similar;
+
+                                let message = dryRun
+                                    ? `Found ${total} duplicates (${exact} exact, ${similar} similar)`
+                                    : `Cleaned up ${total} duplicates (${exact} exact, ${similar} similar)`;
+
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: dryRun ? 'Analysis Complete' : 'Cleanup Complete',
+                                    text: message,
+                                    footer: dryRun && total > 0 ? 'Run "Delete Now" to actually remove them.' : ''
+                                }).then(() => {
+                                    if (!dryRun && total > 0) location.reload();
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: data.message
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: error.message
+                            });
                         });
                 }
             });
