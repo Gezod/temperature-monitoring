@@ -219,6 +219,7 @@
             padding: 15px 0;
             margin-top: 25px;
             border-radius: 0 15px 0 0;
+            overflow-y: auto;
         }
 
         /* Status Sidebar Tertutup */
@@ -229,7 +230,7 @@
         /* Sidebar content styling */
         .sidebar-wrapper .nav-link {
             color: #495057;
-            border-radius: 10px; /* Menggunakan gaya aslinya, tetapi margin kanan 10px */
+            border-radius: 10px;
             margin-right: 10px;
             padding: 12px 16px;
             transition: all 0.3s ease;
@@ -245,6 +246,45 @@
             background: var(--primary-gradient);
             color: white;
             font-weight: 600;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Gaya untuk kategori sidebar */
+        .sidebar-section {
+            border-left: 3px solid #667eea;
+            padding-left: 15px;
+            margin-bottom: 25px;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            color: #6c757d !important;
+            margin-bottom: 10px;
+        }
+
+        .sidebar-section .nav-link {
+            padding: 10px 16px;
+        }
+
+        .sidebar-section .nav-link .menu-description {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            display: block;
+            margin-top: 2px;
+        }
+
+        /* Indikator menu aktif yang lebih jelas */
+        .sidebar-wrapper .nav-link.active::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 70%;
+            background: white;
+            border-radius: 0 4px 4px 0;
         }
 
         /* --- Main Content --- */
@@ -336,6 +376,10 @@
                 margin-left: 0; /* Di mobile, content selalu melebar */
                 padding: 15px;
             }
+
+            .sidebar-section .nav-link .menu-description {
+                display: none; /* Sembunyikan deskripsi di mobile untuk menghemat ruang */
+            }
         }
     </style>
 
@@ -360,44 +404,6 @@
             </button>
 
             <div class="collapse navbar-collapse" id="navbarNav">
-                {{-- <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('dashboard*') ? 'active' : '' }}" href="{{ route('dashboard') }}">
-                            <i class="bi bi-speedometer2"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('temperature*') ? 'active' : '' }}" href="{{ route('temperature.index') }}">
-                            <i class="bi bi-thermometer"></i> Temperature Data
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('anomalies*') ? 'active' : '' }}" href="{{ route('anomalies.index') }}">
-                            <i class="bi bi-exclamation-triangle"></i> Anomalies
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('maintenance*') ? 'active' : '' }}" href="{{ route('maintenance.index') }}">
-                            <i class="bi bi-tools"></i> Maintenance
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('machines*') ? 'active' : '' }}" href="{{ route('machines.index') }}">
-                            <i class="bi bi-cpu"></i> Machines
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('branches*') ? 'active' : '' }}" href="{{ route('branches.index') }}">
-                            <i class="bi bi-building"></i> Branches
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('analytics*') ? 'active' : '' }}" href="{{ route('analytics') }}">
-                            <i class="bi bi-graph-up"></i> Analytics
-                        </a>
-                    </li>
-                </ul> --}}
-
                 <div class="ms-auto d-flex align-items-center">
                     <li class="nav-item dropdown list-unstyled">
                         <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown" role="button" data-bs-toggle="dropdown">
@@ -418,48 +424,83 @@
 
     <div class="sidebar-wrapper" id="sidebarWrapper">
         <div class="p-3">
-            <ul class="nav flex-column gap-2">
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
-                        <i class="bi bi-speedometer2"></i> Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('branches.*') ? 'active' : '' }}" href="{{ route('branches.index') }}">
-                        <i class="bi bi-building"></i> Cabang (Branches)
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('machines.*') ? 'active' : '' }}" href="{{ route('machines.index') }}">
-                        <i class="bi bi-cpu"></i> Mesin (Machines)
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('temperature.*') ? 'active' : '' }}" href="{{ route('temperature.index') }}">
-                        <i class="bi bi-thermometer"></i> Temperature Data
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('analytics') ? 'active' : '' }}" href="{{ route('analytics') }}">
-                        <i class="bi bi-graph-up"></i> Analisis (Analytics)
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('anomalies.*') ? 'active' : '' }}" href="{{ route('anomalies.index') }}">
-                        <i class="bi bi-exclamation-triangle"></i> Anomali (Anomalies)
-                    </a>
-                </li>
-                <!-- <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}" href="{{ route('maintenance.index') }}">
-                        <i class="bi bi-tools"></i> Pemeliharaan (Maintenance)
-                    </a>
-                </li> -->
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}" href="{{ route('branch-comparison') }}">
-                        <i class="bi bi-bar-chart"></i> Perbandingan Cabang (Branch Comparison)
-                    </a>
-                </li>
-            </ul>
+            <!-- Dashboard - Utama -->
+            <div class="sidebar-section">
+                <h6 class="sidebar-section-title text-uppercase fw-bold small mb-3">
+                    <i class="bi bi-house me-2"></i>Utama
+                </h6>
+                <ul class="nav flex-column gap-2">
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                            <span class="menu-description">Overview sistem monitoring</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Data Master -->
+            <div class="sidebar-section">
+                <h6 class="sidebar-section-title text-uppercase fw-bold small mb-3">
+                    <i class="bi bi-database me-2"></i>Data Master
+                </h6>
+                <ul class="nav flex-column gap-2">
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('branches.*') ? 'active' : '' }}" href="{{ route('branches.index') }}">
+                            <i class="bi bi-building"></i> Cabang
+                            <span class="menu-description">Kelola data cabang</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('machines.*') ? 'active' : '' }}" href="{{ route('machines.index') }}">
+                            <i class="bi bi-cpu"></i> Mesin
+                            <span class="menu-description">Kelola data mesin</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Monitoring -->
+            <div class="sidebar-section">
+                <h6 class="sidebar-section-title text-uppercase fw-bold small mb-3">
+                    <i class="bi bi-display me-2"></i>Monitoring
+                </h6>
+                <ul class="nav flex-column gap-2">
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('temperature.*') ? 'active' : '' }}" href="{{ route('temperature.index') }}">
+                            <i class="bi bi-thermometer"></i> Data Temperature
+                            <span class="menu-description">Monitoring suhu real-time</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('analytics') ? 'active' : '' }}" href="{{ route('analytics') }}">
+                            <i class="bi bi-graph-up"></i> Analisis
+                            <span class="menu-description">Analisis data temperature</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Laporan & Alert -->
+            <div class="sidebar-section">
+                <h6 class="sidebar-section-title text-uppercase fw-bold small mb-3">
+                    <i class="bi bi-flag me-2"></i>Laporan & Alert
+                </h6>
+                <ul class="nav flex-column gap-2">
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('anomalies.*') ? 'active' : '' }}" href="{{ route('anomalies.index') }}">
+                            <i class="bi bi-exclamation-triangle"></i> Anomali
+                            <span class="menu-description">Data temperature tidak normal</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}" href="{{ route('branch-comparison') }}">
+                            <i class="bi bi-bar-chart"></i> Perbandingan
+                            <span class="menu-description">Perbandingan antar cabang</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -606,6 +647,24 @@
             });
             // --- Akhir Logika Toggle Sidebar ---
 
+            // Tambahkan tooltip untuk menu sidebar
+            const sidebarLinks = document.querySelectorAll('.sidebar-wrapper .nav-link');
+
+            sidebarLinks.forEach(link => {
+                const description = link.querySelector('.menu-description');
+                if (description) {
+                    link.setAttribute('data-bs-toggle', 'tooltip');
+                    link.setAttribute('data-bs-placement', 'right');
+                    link.setAttribute('title', description.textContent);
+                }
+            });
+
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
             // Auto-refresh functionality
             function startAutoRefresh() {
                 setInterval(function () {
@@ -614,12 +673,6 @@
                     }
                 }, 30000); // 30 seconds
             }
-
-            // Initialize tooltips
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
 
             startAutoRefresh();
             loadAlerts();
