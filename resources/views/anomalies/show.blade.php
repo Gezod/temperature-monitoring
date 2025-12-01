@@ -265,7 +265,7 @@
             @endif
 
             <!-- Quick Actions -->
-            <div class="card mt-4">
+            {{-- <div class="card mt-4">
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="bi bi-lightning"></i> Quick Actions
@@ -292,7 +292,7 @@
                         </a>
                     </div>
                 </div>
-            </div>
+            </div> --}}
         </div>
     </div>
 

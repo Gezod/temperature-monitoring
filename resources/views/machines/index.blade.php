@@ -11,9 +11,9 @@
         <a href="{{ route('machines.create') }}" class="btn btn-primary">
             <i class="bi bi-plus-lg"></i> Add Machine
         </a>
-        <button class="btn btn-warning" onclick="runGlobalAnomalyCheck()">
+        {{-- <button class="btn btn-warning" onclick="runGlobalAnomalyCheck()">
             <i class="bi bi-search"></i> Run Anomaly Check
-        </button>
+        </button> --}}
     </div>
 </div>
 
@@ -171,15 +171,15 @@
                                            class="btn btn-outline-info" title="View Details">
                                             <i class="bi bi-eye"></i>
                                         </a>
-                                        <a href="{{ route('machines.temperature-history', $machine) }}"
+                                        {{-- <a href="{{ route('machines.temperature-history', $machine) }}"
                                            class="btn btn-outline-success" title="Temperature History">
                                             <i class="bi bi-graph-up"></i>
-                                        </a>
-                                        <button class="btn btn-outline-warning"
+                                        </a> --}}
+                                        {{-- <button class="btn btn-outline-warning"
                                                 onclick="runAnomalyCheck({{ $machine->id }})"
                                                 title="Run Anomaly Check">
                                             <i class="bi bi-search"></i>
-                                        </button>
+                                        </button> --}}
                                         <a href="{{ route('machines.edit', $machine) }}"
                                            class="btn btn-outline-secondary" title="Edit">
                                             <i class="bi bi-pencil"></i>

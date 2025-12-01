@@ -15,15 +15,15 @@
             <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#uploadModal">
                 <i class="bi bi-cloud-upload"></i> Upload File
             </button>
-            <a href="{{ route('temperature.validation.history') }}" class="btn btn-info">
+            {{-- <a href="{{ route('temperature.validation.history') }}" class="btn btn-info">
                 <i class="bi bi-clock-history"></i> Validation History
-            </a>
-            <a href="{{ route('temperature.index', ['view' => 'detailed']) }}" class="btn btn-outline-secondary">
+            </a> --}}
+            {{-- <a href="{{ route('temperature.index', ['view' => 'detailed']) }}" class="btn btn-outline-secondary">
                 <i class="bi bi-list-ul"></i> Detailed View
-            </a>
-            <button class="btn btn-warning" onclick="exportData()">
+            </a> --}}
+            {{-- <button class="btn btn-warning" onclick="exportData()">
                 <i class="bi bi-download"></i> Export PDF
-            </button>
+            </button> --}}
         </div>
     </div>
 

@@ -26,9 +26,9 @@
             <a href="{{ route('anomalies.create') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg"></i> Add Anomaly
             </a>
-            <button class="btn btn-success" onclick="exportAnomalies()">
+            {{-- <button class="btn btn-success" onclick="exportAnomalies()">
                 <i class="bi bi-download"></i> Export Report
-            </button>
+            </button> --}}
         </div>
     </div>
 
@@ -43,7 +43,7 @@
         <div class="col-md-3">
             <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
                 <div class="stat-value">{{ $stats['new'] }}</div>
-                <div class="stat-label">New Anomalies</div>
+                <div class="stat-label">Total Anomalies</div>
             </div>
         </div>
         <div class="col-md-3">

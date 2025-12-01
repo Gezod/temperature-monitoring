@@ -1,4 +1,4 @@
- @extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Advanced Analytics')
 
@@ -7,11 +7,6 @@
         <h1 class="h3 mb-0">
             <i class="bi bi-graph-up text-primary"></i> Advanced Analytics
         </h1>
-        <div class="btn-group">
-            <button class="btn btn-success" onclick="exportAnalytics()">
-                <i class="bi bi-download"></i> Export Report
-            </button>
-        </div>
     </div>
 
     <!-- Filter Section -->
@@ -85,41 +80,238 @@
                 Seasonal: {{ isset($seasonalAnalysis) && count($seasonalAnalysis) > 0 ? count($seasonalAnalysis) . ' records' : 'Empty' }} |
                 Performance: {{ isset($performanceComparison) && count($performanceComparison) > 0 ? count($performanceComparison) . ' records' : 'Empty' }}
                 @if(isset($analyticsData) && count($analyticsData) > 0)
-                | First Date: {{ $analyticsData->first()['date'] ?? 'N/A' }}
+                | Date Range: {{ $analyticsData->first()['date'] ?? 'N/A' }} to {{ $analyticsData->last()['date'] ?? 'N/A' }}
                 @endif
             </small>
         </div>
 
-        <!-- DEBUG: Data Sample -->
+        <!-- DEBUG: Data Sample dengan Tampilan yang Lebih Menarik -->
         <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Data Sample (First 3 Records)</h5>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-database"></i> Data Preview
+                    <small class="text-muted">(First {{ min(3, count($analyticsData ?? [])) }} records)</small>
+                </h5>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#dataSampleCollapse">
+                    <i class="bi bi-chevron-down"></i> Toggle View
+                </button>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    @if(isset($analyticsData) && count($analyticsData) > 0)
-                    <div class="col-md-4">
-                        <strong>Analytics Data:</strong>
-                        <pre class="small">{{ json_encode($analyticsData->take(3), JSON_PRETTY_PRINT) }}</pre>
+            <div class="collapse show" id="dataSampleCollapse">
+                <div class="card-body">
+                    <div class="row">
+                        @if(isset($analyticsData) && count($analyticsData) > 0)
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header bg-primary text-white py-2">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-thermometer-half"></i> Analytics Data
+                                        <span class="badge bg-light text-primary ms-2">{{ count($analyticsData) }} total</span>
+                                    </h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="list-group list-group-flush">
+                                        @foreach($analyticsData->take(3) as $index => $data)
+                                        <div class="list-group-item">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <div>
+                                                    <small class="text-muted">#{{ $index + 1 }}</small>
+                                                    <strong class="d-block">
+                                                        {{ $data['date'] ?? 'No Date' }}
+                                                        @if(isset($data['is_demo']) && $data['is_demo'])
+                                                        <span class="badge bg-warning ms-1">Demo</span>
+                                                        @endif
+                                                    </strong>
+                                                </div>
+                                                <div class="text-end">
+                                                    <span class="badge bg-info rounded-pill">
+                                                        {{ number_format($data['avg_temperature'] ?? 0, 1) }}°C
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="mt-2">
+                                                <div class="row small">
+                                                    <div class="col-6">
+                                                        <span class="text-muted">Min:</span>
+                                                        <strong class="text-primary">{{ number_format($data['min_temperature'] ?? 0, 1) }}°C</strong>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <span class="text-muted">Max:</span>
+                                                        <strong class="text-danger">{{ number_format($data['max_temperature'] ?? 0, 1) }}°C</strong>
+                                                    </div>
+                                                </div>
+                                                @if(isset($data['readings_count']))
+                                                <div class="mt-1">
+                                                    <span class="text-muted">Readings:</span>
+                                                    <span class="badge bg-secondary">{{ $data['readings_count'] }}</span>
+                                                </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
+                        @if(isset($seasonalAnalysis) && count($seasonalAnalysis) > 0)
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header bg-success text-white py-2">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-calendar3"></i> Seasonal Analysis
+                                        <span class="badge bg-light text-success ms-2">{{ count($seasonalAnalysis) }} months</span>
+                                    </h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="list-group list-group-flush">
+                                        @foreach($seasonalAnalysis->take(3) as $index => $data)
+                                        <div class="list-group-item">
+                                            <div class="d-flex w-100 justify-content-between align-items-start">
+                                                <div>
+                                                    <span class="badge bg-secondary mb-1">{{ $data['month'] ?? 'Unknown' }}</span>
+                                                    <div class="mt-2">
+                                                        <div class="d-flex align-items-center mb-1">
+                                                            <i class="bi bi-thermometer-low text-info me-2"></i>
+                                                            <small>Avg: <strong>{{ number_format($data['avg_temperature'] ?? 0, 1) }}°C</strong></small>
+                                                        </div>
+                                                        <div class="d-flex align-items-center mb-1">
+                                                            <i class="bi bi-arrow-up text-danger me-2"></i>
+                                                            <small>Max: <strong>{{ number_format($data['max_temperature'] ?? 0, 1) }}°C</strong></small>
+                                                        </div>
+                                                        <div class="d-flex align-items-center">
+                                                            <i class="bi bi-arrow-down text-primary me-2"></i>
+                                                            <small>Min: <strong>{{ number_format($data['min_temperature'] ?? 0, 1) }}°C</strong></small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                @if(isset($data['trend']))
+                                                <div>
+                                                    @if($data['trend'] == 'up')
+                                                    <span class="badge bg-danger">
+                                                        <i class="bi bi-arrow-up"></i> Up
+                                                    </span>
+                                                    @elseif($data['trend'] == 'down')
+                                                    <span class="badge bg-primary">
+                                                        <i class="bi bi-arrow-down"></i> Down
+                                                    </span>
+                                                    @else
+                                                    <span class="badge bg-secondary">
+                                                        <i class="bi bi-dash"></i> Stable
+                                                    </span>
+                                                    @endif
+                                                </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
+                        @if(isset($performanceComparison) && count($performanceComparison) > 0)
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header bg-warning text-dark py-2">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-trophy"></i> Performance Comparison
+                                        <span class="badge bg-light text-warning ms-2">{{ count($performanceComparison) }} branches</span>
+                                    </h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="list-group list-group-flush">
+                                        @foreach($performanceComparison->take(3) as $index => $data)
+                                        <div class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <strong>{{ $data['branch_name'] ?? 'Unknown Branch' }}</strong>
+                                                <div class="text-end">
+                                                    <span class="badge bg-{{ $data['performance_score'] >= 80 ? 'success' : ($data['performance_score'] >= 60 ? 'warning' : 'danger') }}">
+                                                        {{ number_format($data['performance_score'] ?? 0, 1) }}%
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div class="row small g-2">
+                                                <div class="col-6">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="bi bi-cpu text-info me-1"></i>
+                                                        <small>Machines:</small>
+                                                    </div>
+                                                    <strong>{{ $data['machine_count'] ?? 0 }}</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="bi bi-thermometer-half text-primary me-1"></i>
+                                                        <small>Avg Temp:</small>
+                                                    </div>
+                                                    <strong>{{ number_format($data['avg_temperature'] ?? 0, 1) }}°C</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="bi bi-list-check text-success me-1"></i>
+                                                        <small>Readings:</small>
+                                                    </div>
+                                                    <strong>{{ number_format($data['total_readings'] ?? 0) }}</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="bi bi-exclamation-triangle text-danger me-1"></i>
+                                                        <small>Anomalies:</small>
+                                                    </div>
+                                                    <strong>{{ $data['anomaly_count'] ?? 0 }}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
                     </div>
-                    @endif
-                    @if(isset($seasonalAnalysis) && count($seasonalAnalysis) > 0)
-                    <div class="col-md-4">
-                        <strong>Seasonal Data:</strong>
-                        <pre class="small">{{ json_encode($seasonalAnalysis->take(3), JSON_PRETTY_PRINT) }}</pre>
+
+                    <!-- Raw JSON View (Collapsible) -->
+                    <div class="mt-4">
+                        <div class="accordion" id="rawDataAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#rawDataCollapse">
+                                        <i class="bi bi-code me-2"></i> View Raw JSON Data
+                                    </button>
+                                </h2>
+                                <div id="rawDataCollapse" class="accordion-collapse collapse" data-bs-parent="#rawDataAccordion">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            @if(isset($analyticsData) && count($analyticsData) > 0)
+                                            <div class="col-md-4">
+                                                <strong>Analytics Data:</strong>
+                                                <pre class="small bg-light p-2 rounded" style="max-height: 200px; overflow: auto;">{{ json_encode($analyticsData->take(3), JSON_PRETTY_PRINT) }}</pre>
+                                            </div>
+                                            @endif
+                                            @if(isset($seasonalAnalysis) && count($seasonalAnalysis) > 0)
+                                            <div class="col-md-4">
+                                                <strong>Seasonal Data:</strong>
+                                                <pre class="small bg-light p-2 rounded" style="max-height: 200px; overflow: auto;">{{ json_encode($seasonalAnalysis->take(3), JSON_PRETTY_PRINT) }}</pre>
+                                            </div>
+                                            @endif
+                                            @if(isset($performanceComparison) && count($performanceComparison) > 0)
+                                            <div class="col-md-4">
+                                                <strong>Comparison Data:</strong>
+                                                <pre class="small bg-light p-2 rounded" style="max-height: 200px; overflow: auto;">{{ json_encode($performanceComparison->take(3), JSON_PRETTY_PRINT) }}</pre>
+                                            </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    @endif
-                    @if(isset($performanceComparison) && count($performanceComparison) > 0)
-                    <div class="col-md-4">
-                        <strong>Comparison Data:</strong>
-                        <pre class="small">{{ json_encode($performanceComparison->take(3), JSON_PRETTY_PRINT) }}</pre>
-                    </div>
-                    @endif
                 </div>
             </div>
         </div>
     @endif
-
 
     @if (request()->hasAny(['branch_id', 'machine_id', 'date_from', 'date_to']))
 
@@ -679,4 +871,3 @@
         }
     </script>
 @endpush
-

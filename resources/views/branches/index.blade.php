@@ -139,19 +139,19 @@
                                            class="btn btn-outline-info" title="View Details">
                                             <i class="bi bi-eye"></i>
                                         </a>
-                                        <a href="{{ route('branches.performance', $branch) }}"
+                                        {{-- <a href="{{ route('branches.performance', $branch) }}"
                                            class="btn btn-outline-success" title="Performance">
                                             <i class="bi bi-graph-up"></i>
-                                        </a>
+                                        </a> --}}
                                         <a href="{{ route('branches.edit', $branch) }}"
                                            class="btn btn-outline-secondary" title="Edit">
                                             <i class="bi bi-pencil"></i>
                                         </a>
-                                        <button class="btn btn-outline-primary"
+                                        {{-- <button class="btn btn-outline-primary"
                                                 onclick="exportBranchReport({{ $branch->id }})"
                                                 title="Export Report">
                                             <i class="bi bi-download"></i>
-                                        </button>
+                                        </button> --}}
                                     </div>
                                 </td>
                             </tr>

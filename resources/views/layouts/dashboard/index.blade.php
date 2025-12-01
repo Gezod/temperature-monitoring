@@ -9,7 +9,7 @@
     </h1>
     <div class="form-check form-switch">
         <input class="form-check-input" type="checkbox" id="auto-refresh">
-        <label class="form-check-label" for="auto-refresh">Auto Refresh</label>
+        {{-- <label class="form-check-label" for="auto-refresh">Auto Refresh</label> --}}
     </div>
 </div>
 
