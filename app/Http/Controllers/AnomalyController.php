@@ -206,6 +206,186 @@ class AnomalyController extends Controller
         }
     }
 
+    /**
+     * ✅ NEW: Delete Temperature Reading associated with anomaly
+     */
+    public function deleteTemperatureReading(Request $request, $temperatureReadingId)
+    {
+        try {
+            $temperatureReading = TemperatureReading::findOrFail($temperatureReadingId);
+
+            // Check if user has permission to delete (you can add your own authorization logic here)
+            // $this->authorize('delete', $temperatureReading);
+
+            DB::beginTransaction();
+
+            // Get related anomalies before deletion
+            $relatedAnomalies = Anomaly::where('temperature_reading_id', $temperatureReadingId)->get();
+            $anomalyCount = $relatedAnomalies->count();
+
+            // Log information before deletion
+            Log::info("Deleting temperature reading ID: {$temperatureReadingId}", [
+                'machine_id' => $temperatureReading->machine_id,
+                'temperature' => $temperatureReading->temperature,
+                'recorded_at' => $temperatureReading->recorded_at,
+                'related_anomalies' => $anomalyCount
+            ]);
+
+            // Update related anomalies - handle nullable constraint properly
+            foreach ($relatedAnomalies as $anomaly) {
+                $currentNotes = $anomaly->resolution_notes ?? '';
+                $newNote = 'Related temperature reading was deleted on ' . now()->format('Y-m-d H:i:s');
+
+                $anomaly->update([
+                    'temperature_reading_id' => null,
+                    'resolution_notes' => $currentNotes ? $currentNotes . '. ' . $newNote : $newNote
+                ]);
+            }
+
+            // Delete the temperature reading
+            $temperatureReading->delete();
+
+            DB::commit();
+
+            $message = "Temperature reading deleted successfully. {$anomalyCount} related anomalies have been updated.";
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'deleted_reading_id' => $temperatureReadingId,
+                    'affected_anomalies' => $anomalyCount
+                ]);
+            }
+
+            return redirect()->back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to delete temperature reading: ' . $e->getMessage());
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete temperature reading: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return redirect()->back()
+                ->with('error', 'Failed to delete temperature reading: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * ✅ NEW: Bulk delete temperature readings
+     */
+    public function bulkDeleteTemperatureReadings(Request $request)
+    {
+        $request->validate([
+            'reading_ids' => 'required|array',
+            'reading_ids.*' => 'exists:temperature_readings,id'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $readingIds = $request->reading_ids;
+            $deletedCount = 0;
+            $affectedAnomalies = 0;
+
+            foreach ($readingIds as $readingId) {
+                $temperatureReading = TemperatureReading::find($readingId);
+
+                if ($temperatureReading) {
+                    // Update related anomalies - handle nullable constraint properly
+                    $relatedAnomalies = Anomaly::where('temperature_reading_id', $readingId)->get();
+
+                    foreach ($relatedAnomalies as $anomaly) {
+                        $currentNotes = $anomaly->resolution_notes ?? '';
+                        $newNote = 'Related temperature reading was bulk deleted on ' . now()->format('Y-m-d H:i:s');
+
+                        $anomaly->update([
+                            'temperature_reading_id' => null,
+                            'resolution_notes' => $currentNotes ? $currentNotes . '. ' . $newNote : $newNote
+                        ]);
+                    }
+
+                    $affectedAnomalies += $relatedAnomalies->count();
+
+                    // Delete the reading
+                    $temperatureReading->delete();
+                    $deletedCount++;
+                }
+            }
+
+            DB::commit();
+
+            Log::info("Bulk deleted {$deletedCount} temperature readings, affected {$affectedAnomalies} anomalies");
+
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully deleted {$deletedCount} temperature readings. {$affectedAnomalies} anomalies were updated.",
+                'deleted_count' => $deletedCount,
+                'affected_anomalies' => $affectedAnomalies
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Bulk delete failed: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Bulk delete failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ NEW: Get temperature readings with pagination for management
+     */
+    public function manageTemperatureReadings(Request $request)
+    {
+        $query = TemperatureReading::with(['machine.branch', 'anomalies']);
+
+        // Apply filters
+        if ($request->filled('machine_id')) {
+            $query->where('machine_id', $request->machine_id);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->where('recorded_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->where('recorded_at', '<=', $request->date_to);
+        }
+
+        if ($request->filled('has_anomalies')) {
+            if ($request->has_anomalies === 'yes') {
+                $query->whereHas('anomalies');
+            } else {
+                $query->whereDoesntHave('anomalies');
+            }
+        }
+
+        if ($request->filled('reading_type')) {
+            $query->where('reading_type', $request->reading_type);
+        }
+
+        $readings = $query->orderBy('recorded_at', 'desc')->paginate(50);
+        $machines = Machine::with('branch')->where('is_active', true)->get();
+
+        // Statistics
+        $stats = [
+            'total_readings' => TemperatureReading::count(),
+            'with_anomalies' => TemperatureReading::whereHas('anomalies')->count(),
+            'without_anomalies' => TemperatureReading::whereDoesntHave('anomalies')->count(),
+            'today_readings' => TemperatureReading::whereDate('recorded_at', today())->count(),
+        ];
+
+        return view('anomalies.manage-temperature-readings', compact('readings', 'machines', 'stats'));
+    }
+
     public function acknowledge(Request $request, Anomaly $anomaly)
     {
         $request->validate([
@@ -665,7 +845,8 @@ class AnomalyController extends Controller
                         'temperature' => $reading->temperature,
                         'recorded_at' => $reading->recorded_at->format('Y-m-d H:i:s'),
                         'reading_type' => $reading->reading_type,
-                        'formatted_display' => $reading->formatted_temperature . ' - ' . $reading->formatted_recorded_at . ' (' . $reading->reading_type . ')'
+                        'formatted_display' => $reading->formatted_temperature . ' - ' . $reading->formatted_recorded_at . ' (' . $reading->reading_type . ')',
+                        'has_anomalies' => $reading->anomalies()->count() > 0
                     ];
                 });
 

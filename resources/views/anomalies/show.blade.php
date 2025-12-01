@@ -92,7 +92,7 @@
                                     <td>
                                         @php
                                             $reading = $anomaly->temperatureReading;
-                                            $temp = optional($reading)->temperature_value;
+                                            $temp = optional($reading)->temperature;
 
                                             if ($temp === null) {
                                                 $color = 'secondary';

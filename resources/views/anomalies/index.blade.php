@@ -11,20 +11,18 @@
             <button class="btn btn-info" onclick="runAnomalyCheck()">
                 <i class="bi bi-search"></i> Run Anomaly Check
             </button>
-            <button class="btn btn-danger" onclick="runGlobalAnomalyCheck()">
+            {{-- <button class="btn btn-danger" onclick="runGlobalAnomalyCheck()">
                 <i class="bi bi-lightning"></i> Global Check
-            </button>
-            <button class="btn btn-info" onclick="runSync()">
-                <i class="bi bi-info"></i> Refresh Check
-            </button>
-            <!-- ✅ NEW: Duplicate management buttons -->
-            <button class="btn btn-warning" onclick="showDuplicateStats()">
+            </button> --}}
+            <a href="{{ route('anomalies.manage-temperature-readings') }}" class="btn btn-warning">
+                <i class="bi bi-gear"></i> Manage Temperature Data
+            </a>
+            {{-- <button class="btn btn-warning" onclick="showDuplicateStats()">
                 <i class="bi bi-copy"></i> Duplicate Stats
-            </button>
+            </button> --}}
             <button class="btn btn-secondary" onclick="cleanupDuplicates()">
                 <i class="bi bi-trash3"></i> Cleanup
             </button>
-
             <a href="{{ route('anomalies.create') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg"></i> Add Anomaly
             </a>

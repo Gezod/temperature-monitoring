@@ -59,9 +59,15 @@ Route::patch('/anomalies/{anomaly}/resolve', [AnomalyController::class, 'resolve
 Route::post('/anomalies/run-check', [AnomalyController::class, 'runAnomalyCheck'])->name('anomalies.run-check');
 Route::get('/anomalies/chart-data', [AnomalyController::class, 'getChartData'])->name('anomalies.chart-data');
 
-// ✅ NEW: Duplicate prevention routes
-Route::get('/anomalies/duplicate-stats', [AnomalyController::class, 'getDuplicateStats'])->name('anomalies.duplicate-stats');
+// ✅ NEW: Temperature Reading Management Routes
+Route::get('/anomalies/manage/temperature-readings', [AnomalyController::class, 'manageTemperatureReadings'])->name('anomalies.manage-temperature-readings');
+Route::delete('/anomalies/temperature-readings/{temperatureReadingId}/delete', [AnomalyController::class, 'deleteTemperatureReading'])->name('anomalies.delete-temperature-reading');
+Route::post('/anomalies/temperature-readings/bulk-delete', [AnomalyController::class, 'bulkDeleteTemperatureReadings'])->name('anomalies.bulk-delete-temperature-readings');
+
+// ✅ UPDATED: Duplicate prevention routes
+Route::get('/anomalies/duplicate-stats', [AnomalyController::class, 'duplicateStats'])->name('anomalies.duplicate-stats');
 Route::post('/anomalies/cleanup-duplicates', [AnomalyController::class, 'cleanupDuplicates'])->name('anomalies.cleanup-duplicates');
+Route::get('/export', [AnomalyController::class, 'export'])->name('export');
 
 Route::post('/sync-temperature', function () {
     Artisan::call('sync:temperature-readings');
@@ -104,6 +110,28 @@ Route::prefix('api')->group(function () {
     Route::get('/maintenance-insights', [MaintenanceController::class, 'apiMaintenanceInsights'])->name('api.maintenance-insights');
     Route::get('/machines/{machine}/info', [MachineController::class, 'apiMachineInfo'])->name('api.machine-info');
     Route::get('/temperature-readings/{machineId}', [TemperatureController::class, 'getTemperatureReadingsForMachine'])->name('api.temperature-readings');
+
+    // ✅ NEW: Temperature reading details API
+    Route::get('/temperature-readings/{readingId}/details', function($readingId) {
+        try {
+            $reading = \App\Models\TemperatureReading::with('machine')->findOrFail($readingId);
+            return response()->json([
+                'success' => true,
+                'reading' => [
+                    'id' => $reading->id,
+                    'temperature' => $reading->formatted_temperature,
+                    'machine' => $reading->machine->name,
+                    'recorded_at' => $reading->formatted_recorded_at,
+                    'reading_type' => ucfirst(str_replace('_', ' ', $reading->reading_type))
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Reading not found'
+            ], 404);
+        }
+    })->name('api.temperature-reading-details');
 });
 
 

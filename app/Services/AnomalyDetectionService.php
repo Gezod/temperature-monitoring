@@ -226,37 +226,56 @@ class AnomalyDetectionService
      * Check perubahan suhu yang cepat - VERSION FIXED
      */
     private function checkRapidChange(TemperatureReading $temperatureReading)
-    {
-        $recentReading = TemperatureReading::where('machine_id', $temperatureReading->machine_id)
-            ->where('recorded_at', '<', $temperatureReading->recorded_at)
-            ->where('recorded_at', '>=', $temperatureReading->recorded_at->copy()->subHours(2))
-            ->orderBy('recorded_at', 'desc')
-            ->first();
+{
+    $recentReading = TemperatureReading::where('machine_id', $temperatureReading->machine_id)
+        ->where('recorded_at', '<', $temperatureReading->recorded_at)
+        ->where('recorded_at', '>=', $temperatureReading->recorded_at->copy()->subHours(2))
+        ->orderBy('recorded_at', 'desc')
+        ->first();
 
-        if ($recentReading) {
-            $tempChange = abs($temperatureReading->temperature - $recentReading->temperature);
-            $timeChange = $temperatureReading->recorded_at->diffInMinutes($recentReading->recorded_at);
+    if ($recentReading) {
+        $tempChange = abs($temperatureReading->temperature - $recentReading->temperature);
+        $timeChange = $temperatureReading->recorded_at->diffInMinutes($recentReading->recorded_at);
 
-            if ($timeChange > 0) {
-                $changeRate = $tempChange / ($timeChange / 60); // per hour
+        if ($timeChange > 0) {
+            $changeRate = $tempChange / ($timeChange / 60); // per hour
 
-                if ($changeRate >= $this->config['rapid_change_threshold']) {
-                    $severity = $changeRate > 10 ? 'high' : 'medium';
+            if ($changeRate >= $this->config['rapid_change_threshold']) {
 
-                    return $this->createAnomaly(
-                        $temperatureReading,
-                        'rapid_change',
-                        $severity,
-                        "Rapid temperature change: {$tempChange}°C in {$timeChange} minutes (Rate: " . number_format($changeRate, 1) . "°C/hour)",
-                        $this->getRapidChangeCauses(),
-                        $this->getRapidChangeRecommendations()
-                    );
+                /* -------------------------------
+                   Cek Duplikasi Rapid Change
+                   Hindari anomali berulang
+                   Dalam 1 jam terakhir
+                -------------------------------- */
+                $existing = Anomaly::where('machine_id', $temperatureReading->machine_id)
+                    ->where('type', 'rapid_change')
+                    ->where('created_at', '>=', now()->subHours(1))
+                    ->exists();
+
+                if ($existing) {
+                    // Sudah ada rapid_change 1 jam terakhir → tidak perlu buat lagi
+                    return null;
                 }
+
+                // ---------------------------------
+
+                $severity = $changeRate > 10 ? 'high' : 'medium';
+
+                return $this->createAnomaly(
+                    $temperatureReading,
+                    'rapid_change',
+                    $severity,
+                    "Rapid temperature change: {$tempChange}°C in {$timeChange} minutes (Rate: " . number_format($changeRate, 1) . "°C/hour)",
+                    $this->getRapidChangeCauses(),
+                    $this->getRapidChangeRecommendations()
+                );
             }
         }
-
-        return null;
     }
+
+    return null;
+}
+
 
     /**
      * Check penyimpangan pola suhu - VERSION FIXED
