@@ -21,7 +21,8 @@
     <style>
         /* Variabel yang ditambahkan untuk kontrol layout */
         :root {
-            --sidebar-width: 280px; /* Ukuran sidebar disesuaikan agar mirip col-md-3/col-lg-2 di layout grid */
+            --sidebar-width: 280px;
+            /* Ukuran sidebar disesuaikan agar mirip col-md-3/col-lg-2 di layout grid */
             --navbar-height: 56px;
             --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             --secondary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
@@ -34,7 +35,8 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
-            padding-top: var(--navbar-height); /* Padding untuk fixed navbar */
+            padding-top: var(--navbar-height);
+            /* Padding untuk fixed navbar */
             overflow-x: hidden;
         }
 
@@ -51,7 +53,8 @@
         .navbar-brand {
             font-weight: 700;
             font-size: 1.5rem;
-            color: white !important; /* Agar tetap putih */
+            color: white !important;
+            /* Agar tetap putih */
         }
 
         .nav-link {
@@ -90,7 +93,7 @@
             text-align: center;
             transition: all 0.3s ease;
             margin-bottom: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
         .stat-card:hover {
@@ -289,7 +292,8 @@
 
         /* --- Main Content --- */
         .main-content {
-            margin-left: var(--sidebar-width); /* Jarak default untuk sidebar terbuka */
+            margin-left: var(--sidebar-width);
+            /* Jarak default untuk sidebar terbuka */
             padding: 30px;
             transition: margin-left 0.3s ease;
 
@@ -362,23 +366,27 @@
 
         /* --- Responsive Design --- */
         @media (max-width: 991.98px) {
+
             /* Di mobile/tablet */
             .sidebar-wrapper {
                 transform: translateX(calc(0px - var(--sidebar-width)));
                 box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
             }
+
             /* Kelas 'show' hanya digunakan di mobile untuk membuka sidebar */
             .sidebar-wrapper.show {
                 transform: translateX(0);
             }
 
             .main-content {
-                margin-left: 0; /* Di mobile, content selalu melebar */
+                margin-left: 0;
+                /* Di mobile, content selalu melebar */
                 padding: 15px;
             }
 
             .sidebar-section .nav-link .menu-description {
-                display: none; /* Sembunyikan deskripsi di mobile untuk menghemat ruang */
+                display: none;
+                /* Sembunyikan deskripsi di mobile untuk menghemat ruang */
             }
         }
     </style>
@@ -406,7 +414,8 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="ms-auto d-flex align-items-center">
                     <li class="nav-item dropdown list-unstyled">
-                        <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown" role="button"
+                            data-bs-toggle="dropdown">
                             <i class="bi bi-bell"></i>
                             <span class="badge bg-danger" id="alertCount">0</span>
                         </a>
@@ -431,7 +440,8 @@
                 </h6>
                 <ul class="nav flex-column gap-2">
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                        <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
+                            href="{{ route('dashboard') }}">
                             <i class="bi bi-speedometer2"></i> Dashboard
                             <span class="menu-description">Overview sistem monitoring</span>
                         </a>
@@ -446,14 +456,27 @@
                 </h6>
                 <ul class="nav flex-column gap-2">
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('branches.*') ? 'active' : '' }}" href="{{ route('branches.index') }}">
-                            <i class="bi bi-building"></i> Cabang
+                        <a class="nav-link {{ request()->routeIs('branches.*') ? 'active' : '' }}"
+                            href="{{ route('branches.index') }}">
+                            <div class="d-flex align-items-center justify-center justify-content-between">
+                                <div>
+                                    <i class="bi bi-building"></i> Cabang
+
+                                </div>
+                                <p class="border {{ request()->routeIs('branches.*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">1</p>
+                            </div>
                             <span class="menu-description">Kelola data cabang</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('machines.*') ? 'active' : '' }}" href="{{ route('machines.index') }}">
-                            <i class="bi bi-cpu"></i> Mesin
+                        <a class="nav-link {{ request()->routeIs('machines.*') ? 'active' : '' }}"
+                            href="{{ route('machines.index') }}">
+                            <div class="d-flex align-items-center justify-center justify-content-between">
+                                <div>
+                                    <i class="bi bi-cpu"></i> Mesin
+                                </div>
+                                <p class="border {{ request()->routeIs('machines.*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">2</p>
+                            </div>
                             <span class="menu-description">Kelola data mesin</span>
                         </a>
                     </li>
@@ -467,14 +490,26 @@
                 </h6>
                 <ul class="nav flex-column gap-2">
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('temperature.*') ? 'active' : '' }}" href="{{ route('temperature.index') }}">
-                            <i class="bi bi-thermometer"></i> Data Temperature
+                        <a class="nav-link {{ request()->routeIs('temperature.*') ? 'active' : '' }}"
+                            href="{{ route('temperature.index') }}">
+                            <div class="d-flex align-items-center justify-center justify-content-between">
+                                <div>
+                                    <i class="bi bi-thermometer"></i> Data Temperature
+                                </div>
+                                <p class="border {{ request()->routeIs('temperature*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">3</p>
+                            </div>
                             <span class="menu-description">Monitoring suhu real-time</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('analytics') ? 'active' : '' }}" href="{{ route('analytics') }}">
-                            <i class="bi bi-graph-up"></i> Analisis
+                        <a class="nav-link {{ request()->routeIs('analytics') ? 'active' : '' }}"
+                            href="{{ route('analytics') }}">
+                            <div class="d-flex align-items-center justify-center justify-content-between">
+                                <div>
+                                    <i class="bi bi-graph-up"></i> Analisis
+                                </div>
+                                <p class="border {{ request()->routeIs('analytics*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">4</p>
+                            </div>
                             <span class="menu-description">Analisis data temperature</span>
                         </a>
                     </li>
@@ -488,14 +523,26 @@
                 </h6>
                 <ul class="nav flex-column gap-2">
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('anomalies.*') ? 'active' : '' }}" href="{{ route('anomalies.index') }}">
-                            <i class="bi bi-exclamation-triangle"></i> Anomali
+                        <a class="nav-link {{ request()->routeIs('anomalies.*') ? 'active' : '' }}"
+                            href="{{ route('anomalies.index') }}">
+                            <div class="d-flex align-items-center justify-center justify-content-between">
+                                <div>
+                                    <i class="bi bi-exclamation-triangle"></i> Anomali
+                                </div>
+                                <p class="border {{ request()->routeIs('anomalies*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">5</p>
+                            </div>
                             <span class="menu-description">Data temperature tidak normal</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}" href="{{ route('branch-comparison') }}">
-                            <i class="bi bi-bar-chart"></i> Perbandingan
+                        <a class="nav-link {{ request()->routeIs('branch-comparison') ? 'active' : '' }}"
+                            href="{{ route('branch-comparison') }}">
+                            <div class="d-flex align-items-center justify-center justify-content-between">
+                                <div>
+                                    <i class="bi bi-bar-chart"></i> Perbandingan
+                                </div>
+                                <p class="border {{ request()->routeIs('branch-comparison*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">6</p>
+                            </div>
                             <span class="menu-description">Perbandingan antar cabang</span>
                         </a>
                     </li>
@@ -511,7 +558,7 @@
                     <!-- Success Messages -->
                     @if(session('success'))
                         <script>
-                            document.addEventListener('DOMContentLoaded', function() {
+                            document.addEventListener('DOMContentLoaded', function () {
                                 Swal.fire({
                                     icon: 'success',
                                     title: 'Berhasil!',
@@ -526,7 +573,7 @@
                     <!-- Error Messages -->
                     @if(session('error'))
                         <script>
-                            document.addEventListener('DOMContentLoaded', function() {
+                            document.addEventListener('DOMContentLoaded', function () {
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Error!',
@@ -540,7 +587,7 @@
                     <!-- Validation Errors -->
                     @if($errors->any())
                         <script>
-                            document.addEventListener('DOMContentLoaded', function() {
+                            document.addEventListener('DOMContentLoaded', function () {
                                 let errorMessages = @json($errors->all());
                                 Swal.fire({
                                     icon: 'error',
@@ -554,29 +601,29 @@
 
                     <!-- Alert Messages (untuk kompatibilitas dengan template lama) -->
                     @if(session('success'))
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <i class="bi bi-check-circle"></i> {{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle"></i> {{ session('success') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
                     @endif
 
                     @if(session('error'))
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="bi bi-exclamation-circle"></i> {{ session('error') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-circle"></i> {{ session('error') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
                     @endif
 
                     @if($errors->any())
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="bi bi-exclamation-circle"></i>
-                        <ul class="mb-0">
-                            @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-circle"></i>
+                            <ul class="mb-0">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
                     @endif
 
                     @yield('content')
@@ -613,7 +660,7 @@
             sidebarToggle.addEventListener('click', toggleSidebar);
 
             // Tutup sidebar mobile saat overlay diklik
-            overlay.addEventListener('click', function() {
+            overlay.addEventListener('click', function () {
                 sidebarWrapper.classList.remove('show');
                 overlay.classList.remove('active');
             });
@@ -630,7 +677,7 @@
             }
 
             // Atur ulang layout saat window di-resize
-            window.addEventListener('resize', function() {
+            window.addEventListener('resize', function () {
                 if (window.innerWidth >= 992) {
                     // Pastikan di desktop, overlay dan kelas show ditutup
                     overlay.classList.remove('active');
