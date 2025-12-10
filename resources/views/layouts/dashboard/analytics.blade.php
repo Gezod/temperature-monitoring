@@ -339,7 +339,7 @@
                     <div class="card-body">
                         @if (isset($analyticsData) && count($analyticsData) > 0)
                             <div id="chartDebug" class="small text-muted mb-2"></div>
-                            <canvas id="trendsChart" height="100"></canvas>
+                            <canvas id="trendsChart" height="100" ></canvas>
                         @else
                             <div class="text-center py-4">
                                 <i class="bi bi-exclamation-circle text-muted display-4"></i>
@@ -390,7 +390,7 @@
                             </h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="seasonalChart" height="80"></canvas>
+                            <canvas id="seasonalChart" style="width: 100%; height: 350px;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -830,7 +830,7 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: true,
+                        maintainAspectRatio: false,
                         plugins: {
                             title: {
                                 display: true,

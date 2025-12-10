@@ -174,7 +174,7 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="contextChart" height="100"></canvas>
+                    <canvas id="contextChart" style="width: 100%; overflow-x: auto;"></canvas>
                 </div>
             </div>
         </div>
@@ -378,6 +378,7 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false, 
                     plugins: {
                         title: {
                             display: true,
