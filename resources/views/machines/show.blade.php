@@ -12,7 +12,7 @@
             <i class="bi bi-pencil"></i> Edit
         </a>
         <a href="{{ route('machines.index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-list"></i> All Machines
+            <i class="bi bi-list"></i> Kembali
         </a>
     </div>
 </div>

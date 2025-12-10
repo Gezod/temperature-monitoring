@@ -67,7 +67,7 @@
             </div>
         </div>
         <div class="card-body">
-            <canvas id="temperatureChart" height="100"></canvas>
+            <canvas id="temperatureChart" style="width: 100%; overflow-x: auto;"></canvas>
         </div>
     </div>
 
@@ -234,6 +234,7 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false, 
                     plugins: {
                         title: {
                             display: true,

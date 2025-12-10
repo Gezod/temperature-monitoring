@@ -276,6 +276,7 @@ class TemperatureController extends Controller
         default => null
     };
 
+    //pertanyaan ?
     $timestamp = Carbon::parse($request->timestamp);
 
     // UPDATE

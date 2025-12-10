@@ -54,7 +54,7 @@
                 </button>
             </div>
             <div class="card-body">
-                <canvas id="temperatureTrendChart" height="100"></canvas>
+                <canvas id="temperatureTrendChart" style="width: 100%; overflow-x: auto;"></canvas>
             </div>
         </div>
     </div>
@@ -288,6 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false, 
             plugins: {
                 title: {
                     display: true,

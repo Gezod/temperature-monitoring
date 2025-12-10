@@ -77,7 +77,7 @@
                 </button>
             </div>
             <div class="card-body">
-                <canvas id="performanceChart"></canvas>
+                <canvas id="performanceChart" style="width: 100%; overflow-x: auto; height: 100%;"></canvas>
             </div>
         </div>
     </div>
@@ -278,6 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false, 
             scales: {
                 y: {
                     beginAtZero: false,
