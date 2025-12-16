@@ -226,55 +226,55 @@ class AnomalyDetectionService
      * Check perubahan suhu yang cepat - VERSION FIXED
      */
     private function checkRapidChange(TemperatureReading $temperatureReading)
-{
-    $recentReading = TemperatureReading::where('machine_id', $temperatureReading->machine_id)
-        ->where('recorded_at', '<', $temperatureReading->recorded_at)
-        ->where('recorded_at', '>=', $temperatureReading->recorded_at->copy()->subHours(2))
-        ->orderBy('recorded_at', 'desc')
-        ->first();
+    {
+        $recentReading = TemperatureReading::where('machine_id', $temperatureReading->machine_id)
+            ->where('recorded_at', '<', $temperatureReading->recorded_at)
+            ->where('recorded_at', '>=', $temperatureReading->recorded_at->copy()->subHours(2))
+            ->orderBy('recorded_at', 'desc')
+            ->first();
 
-    if ($recentReading) {
-        $tempChange = abs($temperatureReading->temperature - $recentReading->temperature);
-        $timeChange = $temperatureReading->recorded_at->diffInMinutes($recentReading->recorded_at);
+        if ($recentReading) {
+            $tempChange = abs($temperatureReading->temperature - $recentReading->temperature);
+            $timeChange = $temperatureReading->recorded_at->diffInMinutes($recentReading->recorded_at);
 
-        if ($timeChange > 0) {
-            $changeRate = $tempChange / ($timeChange / 60); // per hour
+            if ($timeChange > 0) {
+                $changeRate = $tempChange / ($timeChange / 60); // per hour
 
-            if ($changeRate >= $this->config['rapid_change_threshold']) {
+                if ($changeRate >= $this->config['rapid_change_threshold']) {
 
-                /* -------------------------------
+                    /* -------------------------------
                    Cek Duplikasi Rapid Change
                    Hindari anomali berulang
                    Dalam 1 jam terakhir
                 -------------------------------- */
-                $existing = Anomaly::where('machine_id', $temperatureReading->machine_id)
-                    ->where('type', 'rapid_change')
-                    ->where('created_at', '>=', now()->subHours(1))
-                    ->exists();
+                    $existing = Anomaly::where('machine_id', $temperatureReading->machine_id)
+                        ->where('type', 'rapid_change')
+                        ->where('created_at', '>=', now()->subHours(1))
+                        ->exists();
 
-                if ($existing) {
-                    // Sudah ada rapid_change 1 jam terakhir → tidak perlu buat lagi
-                    return null;
+                    if ($existing) {
+                        // Sudah ada rapid_change 1 jam terakhir → tidak perlu buat lagi
+                        return null;
+                    }
+
+                    // ---------------------------------
+
+                    $severity = $changeRate > 10 ? 'high' : 'medium';
+
+                    return $this->createAnomaly(
+                        $temperatureReading,
+                        'rapid_change',
+                        $severity,
+                        "Rapid temperature change: {$tempChange}°C in {$timeChange} minutes (Rate: " . number_format($changeRate, 1) . "°C/hour)",
+                        $this->getRapidChangeCauses(),
+                        $this->getRapidChangeRecommendations()
+                    );
                 }
-
-                // ---------------------------------
-
-                $severity = $changeRate > 10 ? 'high' : 'medium';
-
-                return $this->createAnomaly(
-                    $temperatureReading,
-                    'rapid_change',
-                    $severity,
-                    "Rapid temperature change: {$tempChange}°C in {$timeChange} minutes (Rate: " . number_format($changeRate, 1) . "°C/hour)",
-                    $this->getRapidChangeCauses(),
-                    $this->getRapidChangeRecommendations()
-                );
             }
         }
-    }
 
-    return null;
-}
+        return null;
+    }
 
 
     /**
@@ -446,7 +446,6 @@ class AnomalyDetectionService
             Log::info("✅ NEW ANOMALY created: ID {$anomaly->id} for reading ID: {$temperatureReading->id}, type: {$type}, temperature: {$temperatureReading->temperature}°C");
 
             return $anomaly;
-
         } catch (\Exception $e) {
             Log::error("❌ Failed to create anomaly: " . $e->getMessage() . " | Reading ID: " . ($temperatureReading->id ?? 'unknown') . " | Type: " . $type);
             return null;
@@ -540,8 +539,10 @@ class AnomalyDetectionService
                             ? abs($anomaly->temperatureReading->temperature - $existing->temperatureReading->temperature)
                             : 999;
 
-                        if ($timeDiff <= $this->config['similar_anomaly_window_hours'] &&
-                            $tempDiff <= $this->config['temperature_tolerance']) {
+                        if (
+                            $timeDiff <= $this->config['similar_anomaly_window_hours'] &&
+                            $tempDiff <= $this->config['temperature_tolerance']
+                        ) {
 
                             $duplicates['similar'][] = [
                                 'keep_id' => $existing->id,
@@ -672,41 +673,41 @@ class AnomalyDetectionService
     // Helper methods for causes and recommendations
     private function getLowTempCauses()
     {
-        return "Possible causes: Excessive cooling system operation, refrigerant leak, faulty temperature sensor, environmental factors, power issues with heating elements, blocked air circulation.";
+        return "Kemungkinan penyebab: Sistem pendingin bekerja berlebihan, kebocoran refrigerant, sensor suhu rusak, faktor lingkungan, masalah daya pada elemen pemanas, sirkulasi udara terhalang.";
     }
 
     private function getLowTempRecommendations()
     {
-        return "Recommendations: Check refrigerant levels and system pressure, inspect insulation and door seals, verify sensor calibration and placement, check for air leaks, review cooling system settings, inspect heating elements if applicable.";
+        return "Rekomendasi: Periksa level refrigerant dan tekanan sistem, cek insulasi dan seal pintu, verifikasi kalibrasi dan penempatan sensor, periksa kebocoran udara, tinjau pengaturan sistem pendingin, periksa elemen pemanas jika ada.";
     }
 
     private function getHighTempCauses()
     {
-        return "Possible causes: Insufficient cooling capacity, blocked air vents or filters, refrigerant issues, high ambient temperature, equipment malfunction, excessive heat load, compressor problems.";
+        return "Kemungkinan penyebab: Kapasitas pendingin tidak cukup, ventilasi atau filter udara tersumbat, masalah refrigerant, suhu lingkungan tinggi, kerusakan peralatan, beban panas berlebihan, masalah kompresor.";
     }
 
     private function getHighTempRecommendations()
     {
-        return "Recommendations: Clean or replace air filters, check cooling system operation, inspect for blockages in air circulation, verify refrigerant levels, reduce heat load if possible, check compressor operation and electrical connections.";
+        return "Rekomendasi: Bersihkan atau ganti filter udara, periksa kinerja sistem pendingin, cek penyumbatan sirkulasi udara, verifikasi level refrigerant, kurangi beban panas jika mungkin, periksa kerja kompresor dan koneksi listrik.";
     }
 
     private function getRapidChangeCauses()
     {
-        return "Possible causes: Door or access panel left open, equipment cycling on/off rapidly, power fluctuations, sensor malfunction, external temperature changes, system instability.";
+        return "Kemungkinan penyebab: Pintu atau panel akses terbuka, peralatan menyala/mati terlalu cepat, fluktuasi daya, kerusakan sensor, perubahan suhu eksternal, ketidakstabilan sistem.";
     }
 
     private function getRapidChangeRecommendations()
     {
-        return "Recommendations: Check door seals and closure mechanisms, inspect sensors and wiring, verify power supply stability, review recent maintenance activities, check system controls and settings.";
+        return "Rekomendasi: Periksa seal pintu dan mekanisme penutup, inspeksi sensor dan kabel, verifikasi stabilitas pasokan listrik, tinjau aktivitas perawatan terkini, cek kontrol dan pengaturan sistem.";
     }
 
     private function getPatternDeviationCauses()
     {
-        return "Possible causes: Gradual equipment degradation, seasonal environmental changes, operational pattern changes, sensor drift, maintenance needed, system aging.";
+        return "Kemungkinan penyebab: Penurunan kinerja peralatan bertahap, perubahan lingkungan musiman, perubahan pola operasi, sensor tidak akurat, perlu perawatan, penuaan sistem.";
     }
 
     private function getPatternDeviationRecommendations()
     {
-        return "Recommendations: Schedule comprehensive system inspection, review and update operational procedures, consider seasonal adjustments, perform sensor calibration, monitor trends closely, plan preventive maintenance.";
+        return "Rekomendasi: Jadwalkan inspeksi sistem menyeluruh, tinjau dan perbarui prosedur operasional, pertimbangkan penyesuaian musiman, lakukan kalibrasi sensor, pantau tren secara ketat, rencanakan perawatan preventif.";
     }
 }

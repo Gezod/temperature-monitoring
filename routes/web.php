@@ -26,6 +26,9 @@ Route::get('/test-chart', fn() => view('test-chart'));
 Route::get('/branch-comparison', [DashboardController::class, 'branchComparison'])->name('branch-comparison');
 Route::get('/alerts', [DashboardController::class, 'alerts'])->name('alerts');
 
+Route::prefix('guide')->group(function () {
+    Route::get('/', fn() => view('guide.index'))->name('guide.index');
+});
 Route::patch('/alerts/{id}/read', [DashboardController::class, 'markAlertAsRead'])->name('alerts.read');
 Route::patch('/alerts/{id}/dismiss', [DashboardController::class, 'dismissAlert'])->name('alerts.dismiss');
 

@@ -244,9 +244,9 @@
                                                 $simColor = 'success';
                                             }
                                         @endphp
-                                        <small class="text-{{ $simColor }}">
+                                        {{-- <small class="text-{{ $simColor }}">
                                             {{ $simTemp ? number_format($simTemp, 1) : 'N/A' }}°C
-                                        </small>
+                                        </small> --}}
                                     </div>
                                     <span class="badge bg-{{ $similar->status_color }}">
                                         {{ ucfirst($similar->status) }}
@@ -378,7 +378,7 @@
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false, 
+                    maintainAspectRatio: false,
                     plugins: {
                         title: {
                             display: true,

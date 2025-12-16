@@ -414,8 +414,8 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="ms-auto d-flex align-items-center">
                     <li class="nav-item dropdown list-unstyled">
-                        <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown" role="button"
-                            data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown"
+                            role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-bell"></i>
                             <span class="badge bg-danger" id="alertCount">0</span>
                         </a>
@@ -463,7 +463,9 @@
                                     <i class="bi bi-building"></i> Cabang
 
                                 </div>
-                                <p class="border {{ request()->routeIs('branches.*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">1</p>
+                                <p
+                                    class="border {{ request()->routeIs('branches.*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">
+                                    1</p>
                             </div>
                             <span class="menu-description">Kelola data cabang</span>
                         </a>
@@ -475,7 +477,9 @@
                                 <div>
                                     <i class="bi bi-cpu"></i> Mesin
                                 </div>
-                                <p class="border {{ request()->routeIs('machines.*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">2</p>
+                                <p
+                                    class="border {{ request()->routeIs('machines.*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">
+                                    2</p>
                             </div>
                             <span class="menu-description">Kelola data mesin</span>
                         </a>
@@ -496,7 +500,9 @@
                                 <div>
                                     <i class="bi bi-thermometer"></i> Data Temperature
                                 </div>
-                                <p class="border {{ request()->routeIs('temperature*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">3</p>
+                                <p
+                                    class="border {{ request()->routeIs('temperature*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">
+                                    3</p>
                             </div>
                             <span class="menu-description">Monitoring suhu real-time</span>
                         </a>
@@ -508,7 +514,9 @@
                                 <div>
                                     <i class="bi bi-graph-up"></i> Analisis
                                 </div>
-                                <p class="border {{ request()->routeIs('analytics*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">4</p>
+                                <p
+                                    class="border {{ request()->routeIs('analytics*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">
+                                    4</p>
                             </div>
                             <span class="menu-description">Analisis data temperature</span>
                         </a>
@@ -529,7 +537,9 @@
                                 <div>
                                     <i class="bi bi-exclamation-triangle"></i> Anomali
                                 </div>
-                                <p class="border {{ request()->routeIs('anomalies*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">5</p>
+                                <p
+                                    class="border {{ request()->routeIs('anomalies*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">
+                                    5</p>
                             </div>
                             <span class="menu-description">Data temperature tidak normal</span>
                         </a>
@@ -541,9 +551,25 @@
                                 <div>
                                     <i class="bi bi-bar-chart"></i> Perbandingan
                                 </div>
-                                <p class="border {{ request()->routeIs('branch-comparison*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">6</p>
+                                <p
+                                    class="border {{ request()->routeIs('branch-comparison*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">
+                                    6</p>
                             </div>
                             <span class="menu-description">Perbandingan antar cabang</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('guide*') ? 'active' : '' }}"
+                            href="{{ route('guide.index') }}">
+                            <div class="d-flex align-items-center justify-center justify-content-between">
+                                <div>
+                                    <i class="bi bi-journal-bookmark"></i> Panduan
+                                </div>
+                                <p
+                                    class="border {{ request()->routeIs('guide*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">
+                                    7</p>
+                            </div>
+                            <span class="menu-description">Panduan penggunaan sistem</span>
                         </a>
                     </li>
                 </ul>
@@ -556,9 +582,9 @@
             <div class="col-12">
                 <div class="main-content mt-4" id="mainContent">
                     <!-- Success Messages -->
-                    @if(session('success'))
+                    @if (session('success'))
                         <script>
-                            document.addEventListener('DOMContentLoaded', function () {
+                            document.addEventListener('DOMContentLoaded', function() {
                                 Swal.fire({
                                     icon: 'success',
                                     title: 'Berhasil!',
@@ -571,9 +597,9 @@
                     @endif
 
                     <!-- Error Messages -->
-                    @if(session('error'))
+                    @if (session('error'))
                         <script>
-                            document.addEventListener('DOMContentLoaded', function () {
+                            document.addEventListener('DOMContentLoaded', function() {
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Error!',
@@ -585,9 +611,9 @@
                     @endif
 
                     <!-- Validation Errors -->
-                    @if($errors->any())
+                    @if ($errors->any())
                         <script>
-                            document.addEventListener('DOMContentLoaded', function () {
+                            document.addEventListener('DOMContentLoaded', function() {
                                 let errorMessages = @json($errors->all());
                                 Swal.fire({
                                     icon: 'error',
@@ -600,25 +626,25 @@
                     @endif
 
                     <!-- Alert Messages (untuk kompatibilitas dengan template lama) -->
-                    @if(session('success'))
+                    @if (session('success'))
                         <div class="alert alert-success alert-dismissible fade show" role="alert">
                             <i class="bi bi-check-circle"></i> {{ session('success') }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     @endif
 
-                    @if(session('error'))
+                    @if (session('error'))
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <i class="bi bi-exclamation-circle"></i> {{ session('error') }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     @endif
 
-                    @if($errors->any())
+                    @if ($errors->any())
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <i class="bi bi-exclamation-circle"></i>
                             <ul class="mb-0">
-                                @foreach($errors->all() as $error)
+                                @foreach ($errors->all() as $error)
                                     <li>{{ $error }}</li>
                                 @endforeach
                             </ul>
@@ -639,7 +665,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             // --- Logika Toggle Sidebar ---
             const sidebarWrapper = document.getElementById('sidebarWrapper');
             const mainContent = document.getElementById('mainContent');
@@ -660,7 +686,7 @@
             sidebarToggle.addEventListener('click', toggleSidebar);
 
             // Tutup sidebar mobile saat overlay diklik
-            overlay.addEventListener('click', function () {
+            overlay.addEventListener('click', function() {
                 sidebarWrapper.classList.remove('show');
                 overlay.classList.remove('active');
             });
@@ -677,7 +703,7 @@
             }
 
             // Atur ulang layout saat window di-resize
-            window.addEventListener('resize', function () {
+            window.addEventListener('resize', function() {
                 if (window.innerWidth >= 992) {
                     // Pastikan di desktop, overlay dan kelas show ditutup
                     overlay.classList.remove('active');
@@ -708,13 +734,13 @@
 
             // Initialize tooltips
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
 
             // Auto-refresh functionality
             function startAutoRefresh() {
-                setInterval(function () {
+                setInterval(function() {
                     if (document.getElementById('auto-refresh')?.checked) {
                         location.reload();
                     }
