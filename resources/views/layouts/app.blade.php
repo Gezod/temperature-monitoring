@@ -388,6 +388,21 @@
                 display: none;
                 /* Sembunyikan deskripsi di mobile untuk menghemat ruang */
             }
+
+            /* Logout Button Styling */
+            
+
+            .logout-btn:hover {
+                background: linear-gradient(135deg,rgba(244, 242, 242, 0.13), #ff4b2b20);
+                color: #dc3545 !important;
+                border-color: #dc3545;
+                transform: translateX(5px);
+            }
+
+            .logout-btn i {
+                color: #dc3545;
+            }
+
         }
     </style>
 
@@ -414,8 +429,8 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="ms-auto d-flex align-items-center">
                     <li class="nav-item dropdown list-unstyled">
-                        <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown"
-                            role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown" role="button"
+                            data-bs-toggle="dropdown">
                             <i class="bi bi-bell"></i>
                             <span class="badge bg-danger" id="alertCount">0</span>
                         </a>
@@ -574,6 +589,43 @@
                     </li>
                 </ul>
             </div>
+
+            <!-- Account -->
+            <div class="sidebar-section mt-4">
+                <h6 class="sidebar-section-title text-uppercase fw-bold small mb-3 text-danger">
+                <i class="bi bi-person me-2"></i>
+                Akun
+                </h6>
+                <ul class="nav flex-column gap-2">
+                <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('account-profile') ? 'active' : '' }}"
+                            href="{{ route('account-profile') }}">
+                            <div class="d-flex align-items-center justify-center justify-content-between">
+                                <div>
+                                <i class="bi bi-person-circle me-2"></i>
+
+                                Akun Profile
+                                </div>
+                                <p
+                                    class="border {{ request()->routeIs('account-profile*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">
+                                    8</p>
+                            </div>
+                            <span class="menu-description">Pengaturan Akun Profile</span>
+                        </a>
+                    </li>
+                    <li class="nav-item rounded-3">
+                        <form id="logoutForm" action="{{ url('/logout') }}" method="POST">
+                            @csrf
+                            <button type="button" onclick="confirmLogout()"
+                                class="nav-link bg-danger w-100  text-white text-start d-flex align-items-center gap-2 logout-btn">
+                                <i class="bi bi-box-arrow-right fs-5"></i>
+                                <span>Logout</span>
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+
         </div>
     </div>
 
@@ -584,7 +636,7 @@
                     <!-- Success Messages -->
                     @if (session('success'))
                         <script>
-                            document.addEventListener('DOMContentLoaded', function() {
+                            document.addEventListener('DOMContentLoaded', function () {
                                 Swal.fire({
                                     icon: 'success',
                                     title: 'Berhasil!',
@@ -599,7 +651,7 @@
                     <!-- Error Messages -->
                     @if (session('error'))
                         <script>
-                            document.addEventListener('DOMContentLoaded', function() {
+                            document.addEventListener('DOMContentLoaded', function () {
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Error!',
@@ -613,7 +665,7 @@
                     <!-- Validation Errors -->
                     @if ($errors->any())
                         <script>
-                            document.addEventListener('DOMContentLoaded', function() {
+                            document.addEventListener('DOMContentLoaded', function () {
                                 let errorMessages = @json($errors->all());
                                 Swal.fire({
                                     icon: 'error',
@@ -665,7 +717,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // --- Logika Toggle Sidebar ---
             const sidebarWrapper = document.getElementById('sidebarWrapper');
             const mainContent = document.getElementById('mainContent');
@@ -686,7 +738,7 @@
             sidebarToggle.addEventListener('click', toggleSidebar);
 
             // Tutup sidebar mobile saat overlay diklik
-            overlay.addEventListener('click', function() {
+            overlay.addEventListener('click', function () {
                 sidebarWrapper.classList.remove('show');
                 overlay.classList.remove('active');
             });
@@ -703,7 +755,7 @@
             }
 
             // Atur ulang layout saat window di-resize
-            window.addEventListener('resize', function() {
+            window.addEventListener('resize', function () {
                 if (window.innerWidth >= 992) {
                     // Pastikan di desktop, overlay dan kelas show ditutup
                     overlay.classList.remove('active');
@@ -734,13 +786,13 @@
 
             // Initialize tooltips
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
 
             // Auto-refresh functionality
             function startAutoRefresh() {
-                setInterval(function() {
+                setInterval(function () {
                     if (document.getElementById('auto-refresh')?.checked) {
                         location.reload();
                     }
@@ -835,6 +887,23 @@
             Toast.fire({
                 icon: 'error',
                 title: message
+            });
+        }
+
+        function confirmLogout() {
+            Swal.fire({
+                title: 'Keluar dari sistem?',
+                text: 'Anda akan keluar dari akun dan perlu login kembali.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Ya, Logout',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('logoutForm').submit();
+                }
             });
         }
     </script>
