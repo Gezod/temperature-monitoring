@@ -22,7 +22,7 @@ use App\Http\Controllers\AuthUserController;
 
 Route::get('/', [AuthUserController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthUserController::class, 'login']);
-Route::post('/logout', [AuthUserController::class, 'logout'])->middleware('auth');
+Route::post('/logout', [AuthUserController::class, 'logout'])->middleware('auth')->name('logout');
 
 // Dashboard
 Route::middleware('auth')->group(function () {
@@ -47,7 +47,8 @@ Route::middleware('auth')->group(function () {
 
     // Temperature Data
     Route::resource('temperature', TemperatureController::class);
-    Route::resource('temperature', TemperatureController::class)->except(['edit']);
+    
+    // Route::resource('temperature', TemperatureController::class)->except(['edit']);
     Route::get('/temperature/date/{date}', [TemperatureController::class, 'showDate'])->name('temperature.show-date');
     Route::post('/temperature/upload-pdf', [TemperatureController::class, 'uploadPdf'])->name('temperature.upload-pdf');
     Route::post('/temperature/upload-excel', [TemperatureController::class, 'uploadExcel'])->name('temperature.upload-excel');
@@ -151,8 +152,9 @@ Route::middleware('auth')->group(function () {
 
 
     // Profile page
-    Route::get('/profile', fn() => view('profile.index'))->name('profile');
-
+    Route::get('/profile', [AuthUserController::class,'profileAccount'])->name('profile');
+    Route::get('/tambah-user',[AuthUserController::class,'showTambahUser'])->name('user.tambah');
+    Route::post('/store-user',[AuthUserController::class,'store'])->name('user.store');
 
     // Debug Analytics
     Route::get('/debug-analytics', function () {
