@@ -1,4 +1,4 @@
-<img width="925" height="458" alt="image" src="https://github.com/user-attachments/assets/24f1ca79-1b94-4201-a54c-47993c98997a" /># Temperature Monitoring System
+ # Temperature Monitoring System
 
 Sistem monitoring temperature real-time yang dibangun dengan Laravel sebagai backend dan menggunakan template responsive modern untuk frontend. Sistem ini memungkinkan monitoring temperature berbagai mesin di multiple cabang dengan fitur analisis anomali dan maintenance scheduling.
 
