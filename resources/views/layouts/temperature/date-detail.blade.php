@@ -156,12 +156,16 @@
                                                                     <a href="{{ route('temperature.edit', $reading->id) }}"
                                                                         class="btn btn-outline-warning"><i class="bi bi-pencil"></i></a>
                                                                     <form method="POST" action="{{ route('temperature.destroy', $reading->id) }}"
-                                                                        style="display:inline;" onsubmit="return confirm('Are you sure?')">
+                                                                        style="display:inline;" class="delete-form">
                                                                         @csrf
                                                                         @method('DELETE')
-                                                                        <button type="submit" class="btn btn-outline-danger"><i
-                                                                                class="bi bi-trash"></i></button>
+
+                                                                        <button type="button" class="btn btn-outline-danger"
+                                                                            onclick="confirmDelete(this)">
+                                                                            <i class="bi bi-trash"></i>
+                                                                        </button>
                                                                     </form>
+
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -181,6 +185,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script>
+
 
         let mainChart;
         let currentChartType = 'line';
@@ -234,7 +239,7 @@
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false, 
+                    maintainAspectRatio: false,
                     plugins: {
                         title: {
                             display: true,
@@ -325,7 +330,7 @@
                     }
                 });
             @endforeach
-                        });
+                            });
 
         function toggleChartType() {
             currentChartType = currentChartType === 'line' ? 'bar' : 'line';
@@ -339,6 +344,25 @@
             link.download = 'temperature_chart_{{ $date }}.png';
             link.href = canvas.toDataURL();
             link.click();
+        }
+
+        function confirmDelete(button) {
+            const form = button.closest('form');
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: 'This data will be permanently deleted.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, delete it',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
         }
     </script>
 @endpush

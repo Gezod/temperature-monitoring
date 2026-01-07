@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Add New Machine')
+@section('title', 'profile account')
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -30,14 +30,7 @@
                     {{ auth()->user()->email }}
                 </div>
             </div>
-
-            <div class="row">
-                <div class="col-4 text-muted">Login sejak</div>
-                <div class="col-8">
-                    {{ auth()->user()->created_at->format('d M Y') }}
-                </div>
-            </div>
-        </div>
+                    </div>
     </div>
 
     <div class="card mt-4">
@@ -79,7 +72,7 @@
                         @error('password')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
-                    </div>
+                    </div>  
 
                     <div class="col-md-6">
                         <label class="form-label">Konfirmasi Password</label>
@@ -95,6 +88,58 @@
                 </div>
             </form>
 
+    </div>
+            <div class="d-flex justify-content-between align-items-center mb-4 mt-4">
+    <h1 class="h3 mb-0">
+        <i class="bi bi-building text-primary"></i> Tambah Pengguna
+    </h1>
+    <div class="btn-group">
+        <a href="{{ route('user.tambah') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Tambah Pengguna
+        </a>
+    </div>
+</div>
+            <div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-list-ul"></i> Semua Pengguna
+            <span class="badge bg-secondary ms-2"> total {{ $jumlah }}</span>
+        </h5>
+    </div>
+            <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>Name</th>
+                                    <th>email</th>
+                                    <th>phone</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach($userData as $user)
+                                    <tr>
+                                        <td>
+                                            <strong>{{ $user->name }}</strong><br>
+                                        </td>
+                                        <td>
+                                            <strong>{{ $user->name }}</strong>
+                                        </td>
+                                        <td>
+                                            <strong>{{ $user->email }}</strong>
+                                        </td>
+                                        <td>
+                                            <strong>{{ $user->phone }}</strong>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted text-center py-3">Belum ada data pembacaan suhu.</p>
+            </div>
+</div>
         </div>
     </div>
 

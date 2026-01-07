@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 class AuthUserController extends Controller
 {
     /**
@@ -28,7 +30,7 @@ class AuthUserController extends Controller
         }
 
         return back()->withErrors([
-            'email' => 'Email atau password salah'
+            'email' => 'Email atau password tidak sesuai'
         ]);
     }
 
@@ -43,7 +45,11 @@ class AuthUserController extends Controller
 
     public function profileAccount()
     {
-        return view('auth.profile-account',['user'=> Auth::user()]);
+        return view('auth.profile-account', [
+            'jumlah'=>User::count(),
+            'user' => Auth::user(),
+            'userData' => User::all(),
+        ]);
     }
 
     public function update(Request $request)
@@ -72,5 +78,32 @@ class AuthUserController extends Controller
         return redirect()
             ->route('account-profile')
             ->with('success', 'Profil berhasil diperbarui');
+    }
+
+    public function showTambahUser()
+    {
+        return view('user.tambahUser');
+
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'phone' => 'required',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'],
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        return redirect()
+            ->route('profile')
+            ->with('success', 'User successfully created.');
     }
 }

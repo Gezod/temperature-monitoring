@@ -37,6 +37,41 @@ class TemperatureController extends Controller
     /**
      * Tampilkan daftar pembacaan suhu
      */
+    // public function index(Request $request)
+    // {
+    //     $query = Temperature::with(['machine.branch'])
+    //         ->orderBy('reading_date', 'desc')
+    //         ->orderBy('reading_time', 'desc');
+
+    //     if ($request->filled('machine_id')) {
+    //         $query->where('machine_id', $request->machine_id);
+    //     }
+
+    //     if ($request->filled('date_from')) {
+    //         $query->where('reading_date', '>=', $request->date_from);
+    //     }
+
+    //     if ($request->filled('date_to')) {
+    //         $query->where('reading_date', '<=', $request->date_to);
+    //     }
+
+    //     if ($request->filled('validation_status')) {
+    //         $query->where('validation_status', $request->validation_status);
+    //     }
+
+    //     // Tampilan detail atau grouped
+    //     if ($request->view === 'detailed') {
+    //         $readings = $query->paginate(50);
+    //         $machines = Machine::with('branch')->where('is_active', true)->get();
+    //         return view('layouts.temperature.detailed', compact('readings', 'machines'));
+    //     }
+
+    //     $readings = $query->get();
+    //     $groupedReadings = $readings->groupBy('reading_date');
+    //     $machines = Machine::with('branch')->where('is_active', true)->get();
+    //     $trendReadings = $readings;
+    //     return view('layouts.temperature.index', compact('readings', 'groupedReadings', 'machines', 'trendReadings'));
+    // }
     public function index(Request $request)
     {
         $query = Temperature::with(['machine.branch'])
@@ -66,11 +101,48 @@ class TemperatureController extends Controller
             return view('layouts.temperature.detailed', compact('readings', 'machines'));
         }
 
+        // Query khusus untuk chart (30 data terakhir sebagai default)
+        $chartQuery = Temperature::with(['machine'])
+            ->orderBy('reading_date', 'desc')
+            ->orderBy('reading_time', 'desc');
+
+        // Apply filter yang sama untuk chart
+        if ($request->filled('machine_id')) {
+            $chartQuery->where('machine_id', $request->machine_id);
+        }
+
+        if ($request->filled('date_from')) {
+            $chartQuery->where('reading_date', '>=', $request->date_from);
+        } else {
+            // Jika tidak ada filter tanggal, ambil 30 hari terakhir
+            $chartQuery->where('reading_date', '>=', now()->subDays(30));
+        }
+
+        if ($request->filled('date_to')) {
+            $chartQuery->where('reading_date', '<=', $request->date_to);
+        }
+
+        if ($request->filled('validation_status')) {
+            $chartQuery->where('validation_status', $request->validation_status);
+        }
+
+        // Ambil data untuk chart (maksimal 100 titik data agar chart tidak terlalu padat)
+        $chartData = $chartQuery->limit(100)->get();
+
+        // Data untuk tabel (dengan pagination)
         $readings = $query->get();
+        // dd($chartData->count()); // Uncomment untuk debug
+
+        // Data untuk card view (grouped)
         $groupedReadings = $readings->groupBy('reading_date');
         $machines = Machine::with('branch')->where('is_active', true)->get();
-        $trendReadings = $readings;
-        return view('layouts.temperature.index', compact('readings', 'groupedReadings', 'machines', 'trendReadings'));
+
+        return view('layouts.temperature.index', compact(
+            'readings',
+            'groupedReadings',
+            'machines',
+            'chartData'
+        ));
     }
 
     /**
@@ -142,11 +214,12 @@ class TemperatureController extends Controller
             $file = $request->file('file');
             $response = Http::attach(
                 'file',
-                file_get_contents($file->getRealPath()),
+                app()->environment('testing') ? 'fake-content' : file_get_contents($file->getRealPath()),
+                // file_get_contents($file->getRealPath()),
                 $file->getClientOriginalName()
             )->post('http://127.0.0.1:5000/upload', [
-                'machine_id' => $request->machine_id
-            ]);
+                        'machine_id' => $request->machine_id
+                    ]);
 
             if ($response->failed()) {
                 return response()->json(['error' => 'Gagal menghubungi Python API'], 500);
@@ -174,10 +247,11 @@ class TemperatureController extends Controller
 
             $machine = Machine::findOrFail($request->machine_id);
             $this->updateMonthlySummariesForMachine($machine);
+            // dd($response->json()); // <--- NYALAKAN INI
 
             return response()->json([
                 'success' => true,
-                'message' => "Imported {$importedCount} readings successfully with anomaly detection."
+                'message' => "Sebanyak {$importedCount} data berhasil diekstrak, silahkan kembali dan refresh halaman temperatre    untuk melihat perubahan."
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -239,13 +313,8 @@ class TemperatureController extends Controller
         $machines = Machine::with('branch')->where('is_active', true)->get();
 
         $validationStatusOptions = [
-            'pending' => 'Pending',
             'validated' => 'Validated',
             'rejected' => 'Rejected',
-            'needs_review' => 'Needs Review',
-            'manual_entry' => 'Manual Entry',
-            'imported' => 'Imported',
-            'edited' => 'Edited',
         ];
 
         return view('layouts.temperature.edit', compact(
@@ -256,127 +325,128 @@ class TemperatureController extends Controller
     }
 
     public function update(Request $request, $id)
-{
-    // VALIDATION
-    $request->validate([
-        'machine_id' => 'required|exists:machines,id',
-        'timestamp' => 'required|date',
-        'temperature_value' => 'required|numeric',
-        'validation_status' => 'required|in:pending,validated,rejected,needs_review,manual_entry,imported,edited',
-        'validation_notes' => 'nullable|string|max:500'
-    ]);
+    {
+        // VALIDATION
+        $request->validate([
+            'machine_id' => 'required|exists:machines,id',
+            'timestamp' => 'required|date',
+            'temperature_value' => 'required|numeric',
+            'validation_status' => 'required|in:pending,validated,rejected,needs_review,manual_entry,imported,edited',
+            'validation_notes' => 'nullable|string|max:500'
+        ]);
 
-    $temperature = Temperature::findOrFail($id);
-    $oldData = $temperature->toArray(); // Simpan data lama
+        $temperature = Temperature::findOrFail($id);
+        $oldData = $temperature->toArray(); // Simpan data lama
 
-    // SIMPLIFY VALIDATION LOGIC
-    $isValidated = match($request->validation_status) {
-        'validated' => 1,
-        'rejected' => 0,
-        default => null
-    };
+        // SIMPLIFY VALIDATION LOGIC
+        $isValidated = match ($request->validation_status) {
+            'validated' => 1,
+            'rejected' => 0,
+            default => null
+        };
 
-    //pertanyaan ?
-    $timestamp = Carbon::parse($request->timestamp);
+        //pertanyaan ?
+        $timestamp = Carbon::parse($request->timestamp);
 
-    // UPDATE
-    $temperature->update([
-        'machine_id' => $request->machine_id,
-        'temperature_value' => $request->temperature_value,
-        'timestamp' => $timestamp,
-        'reading_date' => $timestamp->format('Y-m-d'),
-        'reading_time' => $timestamp->format('H:i:s'),
-        'validation_status' => $request->validation_status,
-        'validation_notes' => $request->validation_notes,
-        'is_validated' => $isValidated
-    ]);
+        // UPDATE
+        $temperature->update([
+            'machine_id' => $request->machine_id,
+            'temperature_value' => $request->temperature_value,
+            'timestamp' => $timestamp,
+            'reading_date' => $timestamp->format('Y-m-d'),
+            'reading_time' => $timestamp->format('H:i:s'),
+            'validation_status' => $request->validation_status,
+            'validation_notes' => $request->validation_notes,
+            'is_validated' => $isValidated
+        ]);
 
-    // ✅ SELALU trigger event, biarkan Listener yang handle logicnya
-    event(new TemperatureUpdated($temperature, $oldData));
+        // ✅ SELALU trigger event, biarkan Listener yang handle logicnya
+        event(new TemperatureUpdated($temperature, $oldData));
 
-    // UPDATE SUMMARY
-    $this->updateMonthlySummary($temperature);
+        // UPDATE SUMMARY
+        $this->updateMonthlySummary($temperature);
 
-    return redirect()->route('temperature.show', $temperature->id)
-        ->with('success', 'Temperature reading updated successfully.');
-}
-/**
- * Determine if anomaly check should be performed
- */
-private function shouldCheckAnomaly($oldTemp, $newTemp, $oldStatus, $newStatus): bool
-{
-    // Always check if status changed to 'validated'
-    if ($oldStatus !== 'validated' && $newStatus === 'validated') {
-        return true;
+        return redirect()->route('temperature.show', $temperature->id)
+            ->with('success', 'Temperature reading updated successfully.');
     }
-
-    // Check if temperature changed significantly (more than 2°C)
-    if (abs($oldTemp - $newTemp) >= 2.0) {
-        return true;
-    }
-
-    // Check if status changed from rejected/needs_review to validated
-    if (in_array($oldStatus, ['rejected', 'needs_review']) && $newStatus === 'validated') {
-        return true;
-    }
-
-    return false;
-}
-
-/**
- * Handle anomaly check for Temperature model
- */
-private function checkAnomalyForTemperature(Temperature $temperature)
-{
-    // Cari atau buat TemperatureReading terkait
-    $reading = $this->findOrCreateTemperatureReading($temperature);
-
-    if ($reading) {
-        $anomalies = $this->anomalyService->checkSingleReading($reading);
-
-        if (count($anomalies) > 0) {
-            Log::info("Anomaly detected after temperature update ID: {$temperature->id}, anomalies: " . count($anomalies));
-
-            // Bisa tambahkan flash message atau notification
-            session()->flash('anomaly_warning',
-                count($anomalies) . ' anomaly detected after update!'
-            );
+    /**
+     * Determine if anomaly check should be performed
+     */
+    private function shouldCheckAnomaly($oldTemp, $newTemp, $oldStatus, $newStatus): bool
+    {
+        // Always check if status changed to 'validated'
+        if ($oldStatus !== 'validated' && $newStatus === 'validated') {
+            return true;
         }
 
-        return count($anomalies);
+        // Check if temperature changed significantly (more than 2°C)
+        if (abs($oldTemp - $newTemp) >= 2.0) {
+            return true;
+        }
+
+        // Check if status changed from rejected/needs_review to validated
+        if (in_array($oldStatus, ['rejected', 'needs_review']) && $newStatus === 'validated') {
+            return true;
+        }
+
+        return false;
     }
 
-    return 0;
-}
+    /**
+     * Handle anomaly check for Temperature model
+     */
+    private function checkAnomalyForTemperature(Temperature $temperature)
+    {
+        // Cari atau buat TemperatureReading terkait
+        $reading = $this->findOrCreateTemperatureReading($temperature);
 
-/**
- * Find or create TemperatureReading from Temperature
- */
-private function findOrCreateTemperatureReading(Temperature $temperature)
-{
-    // Coba cari existing reading
-    $reading = TemperatureReading::where('temperature_id', $temperature->id)->first();
+        if ($reading) {
+            $anomalies = $this->anomalyService->checkSingleReading($reading);
 
-    if (!$reading) {
-        // Buat baru jika tidak ada
-        $reading = TemperatureReading::create([
-            'machine_id' => $temperature->machine_id,
-            'temperature_id' => $temperature->id, // Link ke temperature asli
-            'temperature' => $temperature->temperature_value,
-            'recorded_at' => $temperature->timestamp,
-            'reading_type' => 'manual_entry',
-            'is_anomaly' => false
-        ]);
-    } else {
-        // Update existing reading
-        $reading->update([
-            'temperature' => $temperature->temperature_value,
-            'recorded_at' => $temperature->timestamp
-        ]);
+            if (count($anomalies) > 0) {
+                Log::info("Anomaly detected after temperature update ID: {$temperature->id}, anomalies: " . count($anomalies));
+
+                // Bisa tambahkan flash message atau notification
+                session()->flash(
+                    'anomaly_warning',
+                    count($anomalies) . ' anomaly detected after update!'
+                );
+            }
+
+            return count($anomalies);
+        }
+
+        return 0;
     }
 
-    return $reading;
-}
+    /**
+     * Find or create TemperatureReading from Temperature
+     */
+    private function findOrCreateTemperatureReading(Temperature $temperature)
+    {
+        // Coba cari existing reading
+        $reading = TemperatureReading::where('temperature_id', $temperature->id)->first();
+
+        if (!$reading) {
+            // Buat baru jika tidak ada
+            $reading = TemperatureReading::create([
+                'machine_id' => $temperature->machine_id,
+                'temperature_id' => $temperature->id, // Link ke temperature asli
+                'temperature' => $temperature->temperature_value,
+                'recorded_at' => $temperature->timestamp,
+                'reading_type' => 'manual_entry',
+                'is_anomaly' => false
+            ]);
+        } else {
+            // Update existing reading
+            $reading->update([
+                'temperature' => $temperature->temperature_value,
+                'recorded_at' => $temperature->timestamp
+            ]);
+        }
+
+        return $reading;
+    }
     public function destroy($id)
     {
         $temperature = Temperature::findOrFail($id);
@@ -418,7 +488,7 @@ private function findOrCreateTemperatureReading(Temperature $temperature)
             ->orderBy('timestamp', 'desc')
             ->limit(20)
             ->get()
-            ->map(function($reading) {
+            ->map(function ($reading) {
                 return [
                     'id' => $reading->id,
                     'temperature' => $reading->temperature_value,

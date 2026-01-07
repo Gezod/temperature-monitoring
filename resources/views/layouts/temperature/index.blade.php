@@ -89,7 +89,7 @@
 
     <!-- Table View -->
     <div id="table-view">
-        <div class="card">
+        <div class="card mt-4">
             <div class="card-header">
                 <h5 class="mb-0"><i class="bi bi-list-ul"></i> Daftar Pembacaan Suhu (Tabel)</h5>
             </div>
@@ -135,7 +135,7 @@
 
     <!-- Card / Dashboard View -->
     <div id="card-view" style="display:none;">
-        <div class="row">
+        <div class="row mt-4">
             @if($groupedReadings->count() > 0)
                 @foreach($groupedReadings as $date => $dateReadings)
                     <div class="col-md-6 col-lg-4 mb-4">
@@ -246,23 +246,24 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                <form id="pdfUploadForm1" enctype="multipart/form-data" action="{{ route('temperature.upload-pdf-py') }}" method="POST">
+                    <form id="pdfUploadForm1" enctype="multipart/form-data"
+                        action="{{ route('temperature.upload-pdf-py') }}" method="POST">
                         @csrf
                         <div class="mb-3">
-                                <label for="machine_id_pdf" class="form-label">Pilih Mesin</label>
-                                <select name="machine_id" id="machine_id_pdf" class="form-select" required>
-                                    <option value="">Pilih mesin...</option>
-                                    @foreach($machines->groupBy('branch.name') as $branchName => $branchMachines)
-                                        <optgroup label="{{ $branchName }}">
-                                            @foreach($branchMachines as $machine)
-                                                <option value="{{ $machine->id }}">
-                                                    {{ $machine->name }} ({{ $machine->type }})
-                                                </option>
-                                            @endforeach
-                                        </optgroup>
-                                    @endforeach
-                                </select>
-                            </div>
+                            <label for="machine_id_pdf" class="form-label">Pilih Mesin</label>
+                            <select name="machine_id" id="machine_id_pdf" class="form-select" required>
+                                <option value="">Pilih mesin...</option>
+                                @foreach($machines->groupBy('branch.name') as $branchName => $branchMachines)
+                                    <optgroup label="{{ $branchName }}">
+                                        @foreach($branchMachines as $machine)
+                                            <option value="{{ $machine->id }}">
+                                                {{ $machine->name }} ({{ $machine->type }})
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
+                        </div>
                         <div class="mb-3">
                             <label for="pdf_file" class="form-label">File PDF <span class="text-danger">*</span></label>
                             <input type="file" name="file" id="pdf_file" class="form-control" accept=".pdf" required>
@@ -325,5 +326,160 @@
         function exportData() {
             window.open('{{ route("temperature.export-pdf") }}', '_blank');
         }
+
+        // CHART
+        let chartInstance = null;
+        let chartType = 'line'; // default chart type
+
+        function initTemperatureChart() {
+            @if($chartData->count() > 0)
+                const ctx = document.getElementById('trendsChart').getContext('2d');
+
+                // Siapkan data untuk chart
+                const chartLabels = @json($chartData->map(function ($item) {
+                    return $item->reading_date . ' ' . $item->reading_time;
+                }));
+
+                const chartTemperatures = @json($chartData->map(function ($item) {
+                    return $item->temperature_value;
+                }));
+
+                const chartColors = @json($chartData->map(function ($item) {
+                    // Beri warna berbeda berdasarkan status
+                    if ($item->temperature_value > 80)
+                        return '#dc3545'; // merah untuk suhu tinggi
+                    if ($item->temperature_value > 70)
+                        return '#ffc107'; // kuning untuk suhu sedang
+                    return '#28a745'; // hijau untuk suhu normal
+                }));
+
+                // Konfigurasi data chart
+                const chartData = {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Suhu (°C)',
+                        data: chartTemperatures,
+                        backgroundColor: chartType === 'line' ? 'rgba(79, 172, 254, 0.1)' : chartColors,
+                        borderColor: '#4facfe',
+                        borderWidth: chartType === 'line' ? 2 : 1,
+                        pointBackgroundColor: chartColors,
+                        pointBorderColor: '#fff',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        tension: 0.3,
+                        fill: chartType === 'line'
+                    }]
+                };
+
+                // Konfigurasi options
+                const chartOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return `Suhu: ${context.parsed.y}°C`;
+                                },
+                                afterLabel: function (context) {
+                                    const index = context.dataIndex;
+                                    const reading = @json($chartData)[index];
+                                    return [
+                                        `Mesin: ${reading.machine?.name || '-'}`,
+                                        `Status: ${reading.validation_status}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Tanggal & Waktu'
+                            },
+                            ticks: {
+                                maxTicksLimit: 10,
+                                callback: function (value, index) {
+                                    // Tampilkan label yang lebih pendek
+                                    const label = chartLabels[index];
+                                    if (!label) return '';
+                                    const date = label.split(' ')[0];
+                                    const time = label.split(' ')[1];
+                                    return `${date}\n${time}`;
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Suhu (°C)'
+                            },
+                            suggestedMin: Math.min(...chartTemperatures) - 5,
+                            suggestedMax: Math.max(...chartTemperatures) + 5
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                };
+
+                // Hapus chart sebelumnya jika ada
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+
+                // Buat chart baru
+                chartInstance = new Chart(ctx, {
+                    type: chartType,
+                    data: chartData,
+                    options: chartOptions
+                });
+            @endif
+        }
+
+        // Fungsi untuk toggle antara line chart dan bar chart
+        function toggleChartType() {
+            chartType = chartType === 'line' ? 'bar' : 'line';
+            initTemperatureChart();
+
+            // Update button text
+            const button = document.querySelector('button[onclick="toggleChartType()"]');
+            const icon = button.querySelector('i');
+            icon.className = chartType === 'line' ? 'bi bi-bar-chart' : 'bi bi-graph-up';
+        }
+
+        // Fungsi untuk download chart
+        function downloadChart(chartId, filename) {
+            const link = document.createElement('a');
+            link.download = filename + '.png';
+            link.href = document.getElementById(chartId).toDataURL('image/png');
+            link.click();
+        }
+
+        // Inisialisasi chart saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', function () {
+            initTemperatureChart();
+
+            // Update chart saat filter berubah
+            document.querySelector('form[method="GET"]').addEventListener('submit', function () {
+                setTimeout(initTemperatureChart, 1000);
+            });
+        });
+
+        // Fungsi untuk toggle view
+        function showView(view) {
+            document.getElementById('table-view').style.display = (view === 'table') ? 'block' : 'none';
+            document.getElementById('card-view').style.display = (view === 'card') ? 'block' : 'none';
+
+            // Update chart saat berpindah view (untuk memastikan ukuran benar)
+            setTimeout(initTemperatureChart, 100);
+        }
+
+        window.onload = () => showView('table');
     </script>
 @endpush
