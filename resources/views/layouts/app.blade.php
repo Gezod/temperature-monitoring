@@ -10,7 +10,7 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-
+    <link rel="icon" href="{{ asset('assets/img/logo_e_temp.png') }}" type="image/png">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -390,10 +390,10 @@
             }
 
             /* Logout Button Styling */
-            
+
 
             .logout-btn:hover {
-                background: linear-gradient(135deg,rgba(244, 242, 242, 0.13), #ff4b2b20);
+                background: linear-gradient(135deg, rgba(244, 242, 242, 0.13), #ff4b2b20);
                 color: #dc3545 !important;
                 border-color: #dc3545;
                 transform: translateX(5px);
@@ -418,19 +418,21 @@
                 <i class="bi bi-list"></i>
             </button>
 
-            <a class="navbar-brand" href="{{ route('dashboard') }}">
-                <i class="bi bi-thermometer-snow"></i> Temperature Monitor
+            <a class="navbar-brand d-flex align-items-center gap-2" href="{{ route('dashboard') }}">
+                <img src="{{ asset('assets/img/logo_e_temp.png') }}" alt="Temperature Monitor" style="height:32px">
+                <span>E-Temp</span>
             </a>
+
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
             <div class="collapse navbar-collapse" id="navbarNav">
-                <div class="ms-auto d-flex align-items-center">
+                {{-- <div class="ms-auto d-flex align-items-center">
                     <li class="nav-item dropdown list-unstyled">
-                        <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown" role="button"
-                            data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle text-white me-2" href="#" id="alertsDropdown"
+                            role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-bell"></i>
                             <span class="badge bg-danger" id="alertCount">0</span>
                         </a>
@@ -441,7 +443,7 @@
                     <a class="nav-link text-white" href="{{ route('profile') }}">
                         <i class="bi bi-person"></i> Profile
                     </a>
-                </div>
+                </div> --}}
             </div>
         </div>
     </nav>
@@ -593,18 +595,18 @@
             <!-- Account -->
             <div class="sidebar-section mt-4">
                 <h6 class="sidebar-section-title text-uppercase fw-bold small mb-3 text-danger">
-                <i class="bi bi-person me-2"></i>
-                Akun
+                    <i class="bi bi-person me-2"></i>
+                    Akun
                 </h6>
                 <ul class="nav flex-column gap-2">
-                <li class="nav-item">
+                    <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('account-profile') ? 'active' : '' }}"
                             href="{{ route('account-profile') }}">
                             <div class="d-flex align-items-center justify-center justify-content-between">
                                 <div>
-                                <i class="bi bi-person-circle me-2"></i>
+                                    <i class="bi bi-person-circle me-2"></i>
 
-                                Akun Profile
+                                    Akun Profile
                                 </div>
                                 <p
                                     class="border {{ request()->routeIs('account-profile*') ? 'active bg-white text-dark' : '' }} border-dark rounded-circle py-1 px-3 d-inline-block">
@@ -636,7 +638,7 @@
                     <!-- Success Messages -->
                     @if (session('success'))
                         <script>
-                            document.addEventListener('DOMContentLoaded', function () {
+                            document.addEventListener('DOMContentLoaded', function() {
                                 Swal.fire({
                                     icon: 'success',
                                     title: 'Berhasil!',
@@ -651,7 +653,7 @@
                     <!-- Error Messages -->
                     @if (session('error'))
                         <script>
-                            document.addEventListener('DOMContentLoaded', function () {
+                            document.addEventListener('DOMContentLoaded', function() {
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Error!',
@@ -665,7 +667,7 @@
                     <!-- Validation Errors -->
                     @if ($errors->any())
                         <script>
-                            document.addEventListener('DOMContentLoaded', function () {
+                            document.addEventListener('DOMContentLoaded', function() {
                                 let errorMessages = @json($errors->all());
                                 Swal.fire({
                                     icon: 'error',
@@ -717,7 +719,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             // --- Logika Toggle Sidebar ---
             const sidebarWrapper = document.getElementById('sidebarWrapper');
             const mainContent = document.getElementById('mainContent');
@@ -738,7 +740,7 @@
             sidebarToggle.addEventListener('click', toggleSidebar);
 
             // Tutup sidebar mobile saat overlay diklik
-            overlay.addEventListener('click', function () {
+            overlay.addEventListener('click', function() {
                 sidebarWrapper.classList.remove('show');
                 overlay.classList.remove('active');
             });
@@ -755,7 +757,7 @@
             }
 
             // Atur ulang layout saat window di-resize
-            window.addEventListener('resize', function () {
+            window.addEventListener('resize', function() {
                 if (window.innerWidth >= 992) {
                     // Pastikan di desktop, overlay dan kelas show ditutup
                     overlay.classList.remove('active');
@@ -786,13 +788,13 @@
 
             // Initialize tooltips
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
 
             // Auto-refresh functionality
             function startAutoRefresh() {
-                setInterval(function () {
+                setInterval(function() {
                     if (document.getElementById('auto-refresh')?.checked) {
                         location.reload();
                     }

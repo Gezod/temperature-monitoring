@@ -77,7 +77,7 @@ class DashboardController extends Controller
             DB::raw('MAX(temperature_value) as max_temperature'),
             DB::raw('COUNT(*) as reading_count')
         )
-            ->where('timestamp', '>=', now()->subDays(30))
+            ->where('timestamp', '>=', now()->subDays(90))
             ->groupBy(DB::raw('DATE(timestamp)'))
             ->orderBy('date')
             ->get();

@@ -49,7 +49,7 @@
             left: -50%;
             width: 200%;
             height: 200%;
-            background: 
+            background:
                 radial-gradient(circle at 20% 50%, rgba(0, 188, 212, 0.2) 0%, transparent 50%),
                 radial-gradient(circle at 80% 80%, rgba(77, 208, 225, 0.15) 0%, transparent 50%);
             animation: gradientMove 20s ease infinite;
@@ -75,6 +75,9 @@
         .brand-section {
             color: var(--surface);
             animation: slideInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
         }
 
         @keyframes slideInLeft {
@@ -88,6 +91,56 @@
             }
         }
 
+        .logo-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 32px;
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo-img {
+            height: 150px;
+            width: auto;
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
+            transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .logo-img:hover {
+            transform: scale(1.05) rotate(2deg);
+        }
+
+        .logo-text {
+            margin-left: 16px;
+            border-left: 2px solid rgba(255, 255, 255, 0.3);
+            padding-left: 16px;
+        }
+
+        .logo-text h2 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.75rem;
+            font-weight: 400;
+            color: var(--surface);
+            line-height: 1.2;
+            letter-spacing: 0.5px;
+        }
+
+        .logo-text p {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 4px;
+        }
+
         .brand-section h1 {
             font-family: 'DM Serif Display', serif;
             font-size: clamp(2.5rem, 5vw, 4rem);
@@ -95,6 +148,7 @@
             line-height: 1.1;
             margin-bottom: 24px;
             letter-spacing: -0.02em;
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
         }
 
         .brand-section .accent-text {
@@ -107,6 +161,7 @@
             line-height: 1.7;
             color: rgba(255, 255, 255, 0.7);
             max-width: 480px;
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
         }
 
         .login-card {
@@ -142,9 +197,22 @@
 
         .login-header {
             margin-bottom: 36px;
+            display: flex;
+            align-items: center;
         }
 
-        .login-header h2 {
+        .login-logo-small {
+            height: 150px;
+            width: auto;
+            margin-right: 16px;
+            filter: drop-shadow(0 2px 4px rgba(91, 99, 211, 0.1));
+        }
+
+        .login-header-text {
+            flex: 1;
+        }
+
+        .login-header-text h2 {
             font-size: 1.875rem;
             font-weight: 700;
             color: var(--text-primary);
@@ -152,7 +220,7 @@
             letter-spacing: -0.02em;
         }
 
-        .login-header p {
+        .login-header-text p {
             color: var(--text-secondary);
             font-size: 0.9375rem;
         }
@@ -226,6 +294,10 @@
             box-shadow: 0 4px 16px rgba(0, 188, 212, 0.3);
             position: relative;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         .btn-login::before {
@@ -250,6 +322,17 @@
 
         .btn-login:active {
             transform: translateY(0);
+        }
+
+        .btn-login-icon {
+            height: 50px;
+            width: auto;
+            filter: brightness(0) invert(1);
+            transition: transform 0.3s;
+        }
+
+        .btn-login:hover .btn-login-icon {
+            transform: translateX(4px);
         }
 
         .form-footer {
@@ -300,6 +383,29 @@
             50% { transform: translateY(-20px) scale(1.05); }
         }
 
+        /* Logo watermark untuk efek profesional */
+        .logo-watermark {
+            position: absolute;
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .watermark-1 {
+            width: 400px;
+            height: auto;
+            top: 50%;
+            left: 10%;
+            transform: translateY(-50%);
+        }
+
+        .watermark-2 {
+            width: 300px;
+            height: auto;
+            bottom: 10%;
+            right: 10%;
+        }
+
         /* Responsive Design */
         @media (max-width: 968px) {
             .container {
@@ -310,6 +416,21 @@
 
             .brand-section {
                 text-align: center;
+                align-items: center;
+            }
+
+            .logo-container {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .logo-text {
+                margin-left: 0;
+                border-left: none;
+                padding-left: 0;
+                margin-top: 16px;
+                border-top: 2px solid rgba(255, 255, 255, 0.3);
+                padding-top: 16px;
             }
 
             .brand-section p {
@@ -318,6 +439,10 @@
 
             .login-card {
                 padding: 36px 28px;
+            }
+
+            .watermark-1, .watermark-2 {
+                display: none;
             }
         }
 
@@ -330,11 +455,26 @@
                 font-size: 2rem;
             }
 
+            .logo-img {
+                height: 60px;
+            }
+
             .login-card {
                 padding: 28px 20px;
             }
 
-            .login-header h2 {
+            .login-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .login-logo-small {
+                margin-bottom: 12px;
+                margin-right: 0;
+                height: 40px;
+            }
+
+            .login-header-text h2 {
                 font-size: 1.5rem;
             }
         }
@@ -363,26 +503,52 @@
             border-top-color: white;
             animation: spin 0.6s linear infinite;
         }
+
+        /* Hover effect untuk logo */
+        @keyframes logoGlow {
+            0%, 100% { filter: drop-shadow(0 4px 12px rgba(0, 188, 212, 0.3)); }
+            50% { filter: drop-shadow(0 4px 20px rgba(0, 188, 212, 0.6)); }
+        }
+
+        .logo-img.glow {
+            animation: logoGlow 3s infinite;
+        }
     </style>
 </head>
 <body>
+    <!-- Watermark logos -->
+    <img src="{{ asset('assets/img/logo_e_temp.png') }}" alt="Logo Watermark" class="logo-watermark watermark-1">
+    <img src="{{ asset('assets/img/logo_e_temp.png') }}" alt="Logo Watermark" class="logo-watermark watermark-2">
+
     <div class="decorative-circle circle-1"></div>
     <div class="decorative-circle circle-2"></div>
-    
+
     <div class="container">
         <div class="brand-section">
+            <div class="logo-container">
+                <img src="{{ asset('assets/img/logo_e_temp.png') }}" alt="Logo Sistem" class="logo-img glow">
+                <div class="logo-text">
+                    <h2>Sistem e-Temp</h2>
+                    <p>Solusi Digital Terdepan</p>
+                </div>
+            </div>
+
             <h1>
                 Selamat Datang <span class="accent-text">Kembali</span>
             </h1>
             <p>
                 Masuk ke akun Anda untuk mengakses dashboard dan fitur-fitur lengkap sistem kami.
+                Tampilkan keunggulan produk kami di pameran ini.
             </p>
         </div>
 
         <div class="login-card">
             <div class="login-header">
-                <h2>Masuk</h2>
-                <p>Gunakan kredensial Anda untuk melanjutkan</p>
+                <img src="{{ asset('assets/img/logo_e_temp.png') }}" alt="Logo Sistem" class="login-logo-small">
+                <div class="login-header-text">
+                    <h2>Masuk ke Sistem</h2>
+                    <p>Gunakan kredensial Anda untuk melanjutkan</p>
+                </div>
             </div>
 
             @if ($errors->any())
@@ -393,14 +559,14 @@
 
             <form method="POST" action="/login" id="loginForm">
                 @csrf
-                
+
                 <div class="form-group">
                     <label class="form-label" for="email">Email</label>
-                    <input 
-                        type="email" 
-                        name="email" 
+                    <input
+                        type="email"
+                        name="email"
                         id="email"
-                        class="form-input" 
+                        class="form-input"
                         placeholder="nama@email.com"
                         required
                         autocomplete="email"
@@ -410,11 +576,11 @@
 
                 <div class="form-group">
                     <label class="form-label" for="password">Password</label>
-                    <input 
-                        type="password" 
-                        name="password" 
+                    <input
+                        type="password"
+                        name="password"
                         id="password"
-                        class="form-input" 
+                        class="form-input"
                         placeholder="Masukkan password Anda"
                         required
                         autocomplete="current-password"
@@ -422,11 +588,13 @@
                 </div>
 
                 <button type="submit" class="btn-login" id="btnLogin">
+                    <img src="{{ asset('assets/img/logo_e_temp.png') }}" alt="Logo" class="btn-login-icon">
                     Masuk Sekarang
                 </button>
 
                 <div class="form-footer">
-                    <a href="/forgot-password">Lupa password?</a>
+                    <a href="/forgot-password">Lupa password?</a> •
+                    <a href="/demo" id="demoLink">Coba Demo</a>
                 </div>
             </form>
         </div>
@@ -448,13 +616,65 @@
                     this.style.borderColor = '#10B981';
                 }
             });
-            
+
             input.addEventListener('input', function() {
                 if (this.style.borderColor === 'rgb(16, 185, 129)') {
                     this.style.borderColor = '';
                 }
             });
         });
+
+        // Demo mode untuk pameran
+        document.getElementById('demoLink')?.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            // Auto-fill demo credentials
+            document.getElementById('email').value = 'demo@pameran.com';
+            document.getElementById('password').value = 'demo123';
+
+            // Highlight the filled fields
+            const emailField = document.getElementById('email');
+            const passwordField = document.getElementById('password');
+
+            emailField.style.borderColor = '#00BCD4';
+            passwordField.style.borderColor = '#00BCD4';
+
+            // Show notification
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert';
+            alertDiv.style.backgroundColor = '#D1FAE5';
+            alertDiv.style.color = '#047857';
+            alertDiv.style.borderLeftColor = '#10B981';
+            alertDiv.textContent = 'Kredensial demo telah diisi. Klik "Masuk Sekarang" untuk mencoba.';
+
+            const loginHeader = document.querySelector('.login-header');
+            loginHeader.parentNode.insertBefore(alertDiv, loginHeader.nextSibling);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                alertDiv.style.opacity = '0';
+                alertDiv.style.transform = 'translateY(-10px)';
+                alertDiv.style.transition = 'all 0.3s';
+
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.parentNode.removeChild(alertDiv);
+                    }
+                }, 300);
+            }, 5000);
+        });
+
+        // Add interactive logo effect
+        const logo = document.querySelector('.logo-img');
+        if (logo) {
+            logo.addEventListener('mouseenter', function() {
+                this.classList.add('glow');
+            });
+
+            logo.addEventListener('mouseleave', function() {
+                this.classList.remove('glow');
+            });
+        }
     </script>
 </body>
 </html>

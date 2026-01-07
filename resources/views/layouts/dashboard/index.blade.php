@@ -7,39 +7,36 @@
     <h1 class="h3 mb-0">
         <i class="bi bi-speedometer2 text-primary"></i> Dashboard Pemantauan Suhu
     </h1>
-    <div class="form-check form-switch">
+    {{-- <div class="form-check form-switch">
         <input class="form-check-input" type="checkbox" id="auto-refresh">
-        {{-- <label class="form-check-label" for="auto-refresh">Auto Refresh</label> --}}
-    </div>
+        <label class="form-check-label" for="auto-refresh">Auto Refresh</label>
+    </div> --}}
 </div>
 
 <!-- Overview Statistics -->
 <div class="row mb-4">
-    <div class="col-md-6 col-xl-3 mb-3">
+    <div class="col-md-6 col-xl-4 mb-3">
         <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
             <div class="stat-value">{{ $stats['total_branches'] }}</div>
             <div class="stat-label">Total Cabang</div>
         </div>
     </div>
-    <div class="col-md-6 col-xl-3 mb-3">
+
+    <div class="col-md-6 col-xl-4 mb-3">
         <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
             <div class="stat-value">{{ $stats['total_machines'] }}</div>
             <div class="stat-label">Total Mesin</div>
         </div>
     </div>
-    <div class="col-md-6 col-xl-3 mb-3">
+
+    <div class="col-md-6 col-xl-4 mb-3">
         <div class="stat-card" style="background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);">
             <div class="stat-value">{{ $stats['active_anomalies'] }}</div>
             <div class="stat-label">Anomali Aktif</div>
         </div>
     </div>
-    <div class="col-md-6 col-xl-3 mb-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            <div class="stat-value">{{ $stats['pending_maintenance'] }}</div>
-            <div class="stat-label">Maintenance Pending</div>
-        </div>
-    </div>
 </div>
+
 
 <!-- Temperature Trends Chart -->
 <div class="row mb-4">
@@ -47,7 +44,7 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
-                    <i class="bi bi-graph-up"></i> Tren Suhu 30 Hari Terakhir
+                    <i class="bi bi-graph-up"></i> Tren Suhu 90 Hari Terakhir
                 </h5>
                 <button class="btn btn-outline-light btn-sm" onclick="downloadChart('temperatureTrendChart', 'temperature_trends')">
                     <i class="bi bi-download"></i> Download
@@ -288,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false, 
+            maintainAspectRatio: false,
             plugins: {
                 title: {
                     display: true,
