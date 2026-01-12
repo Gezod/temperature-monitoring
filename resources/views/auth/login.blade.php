@@ -592,10 +592,10 @@
                     Masuk Sekarang
                 </button>
 
-                <div class="form-footer">
+                {{-- <div class="form-footer">
                     <a href="/forgot-password">Lupa password?</a> •
                     <a href="/demo" id="demoLink">Coba Demo</a>
-                </div>
+                </div> --}}
             </form>
         </div>
     </div>
