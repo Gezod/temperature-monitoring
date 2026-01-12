@@ -203,7 +203,7 @@ class TemperatureController extends Controller
     /**
      * Upload dan proses PDF via Python
      */
-    public function uploadPdfPy(Request $request)
+public function uploadPdfPy(Request $request)
 {
     $request->validate([
         'file' => 'required|file|mimes:pdf|max:10240',
@@ -222,7 +222,10 @@ class TemperatureController extends Controller
             : file_get_contents($file->getRealPath());
 
         // Send request to Python API
-        $response = Http::timeout(60) // Tambahkan timeout yang lebih panjang
+        $response = Http::timeout(120) // Tambah timeout untuk proses PDF yang besar
+            ->withHeaders([
+                'Accept' => 'application/json',
+            ])
             ->attach(
                 'file',
                 $fileContent,
@@ -231,80 +234,154 @@ class TemperatureController extends Controller
                 'machine_id' => $request->machine_id
             ]);
 
-        // Debug response (aktifkan jika perlu)
-        // Log::info('Python API Response:', [
-        //     'status' => $response->status(),
-        //     'body' => $response->body()
-        // ]);
+        // Log untuk debugging
+        Log::info('PDF Upload Request:', [
+            'machine_id' => $request->machine_id,
+            'file_name' => $file->getClientOriginalName(),
+            'file_size' => $file->getSize(),
+            'response_status' => $response->status(),
+        ]);
 
         if ($response->failed()) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Gagal menghubungi Python API. Status: ' . $response->status()
-            ], 500);
+            Log::error('Python API Failed Response:', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+
+            return redirect()->route('temperature.index')
+                ->with('error', 'Gagal menghubungi Python API. Status: ' . $response->status() .
+                       ' - Pastikan server Python berjalan dan dapat diakses.');
         }
 
         $data = $response->json();
 
         // Validasi respons dari Python API
         if (!isset($data['temperature_data']) || !is_array($data['temperature_data'])) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Format respons dari Python API tidak valid'
-            ], 500);
+            Log::error('Invalid Python API Response Format:', $data);
+            return redirect()->route('temperature.index')
+                ->with('error', 'Format respons dari Python API tidak valid. Data tidak ditemukan.');
         }
 
         $importedCount = 0;
+        $failedCount = 0;
+        $duplicateCount = 0;
 
         foreach ($data['temperature_data'] as $item) {
             try {
+                // Validasi data yang diperlukan
+                if (!isset($item['timestamp']) || !isset($item['temperature'])) {
+                    $failedCount++;
+                    Log::warning('Missing required fields in item:', $item);
+                    continue;
+                }
+
                 $timestamp = Carbon::parse($item['timestamp']);
+                $machineId = $item['machine_id'] ?? $request->machine_id;
+
+                // Cek duplikat berdasarkan timestamp dan machine_id
+                $existing = Temperature::where('machine_id', $machineId)
+                    ->where('timestamp', $timestamp)
+                    ->first();
+
+                if ($existing) {
+                    $duplicateCount++;
+                    Log::info('Duplicate temperature skipped:', [
+                        'machine_id' => $machineId,
+                        'timestamp' => $timestamp
+                    ]);
+                    continue;
+                }
 
                 $temperature = Temperature::create([
-                    'machine_id' => $item['machine_id'] ?? $request->machine_id,
-                    'temperature_value' => $item['temperature'] ?? $item['temperature_value'] ?? null,
+                    'machine_id' => $machineId,
+                    'temperature_value' => $item['temperature'],
                     'timestamp' => $timestamp,
                     'reading_date' => $timestamp->format('Y-m-d'),
                     'reading_time' => $timestamp->format('H:i:s'),
                     'validation_status' => 'pending',
+                    'source' => 'pdf_import',
+                    'file_name' => $file->getClientOriginalName(),
                 ]);
 
                 // Run anomaly check on imported temperature
                 $this->anomalyService->checkSingleReading($temperature);
                 $importedCount++;
+
             } catch (\Exception $e) {
                 // Log error untuk setiap item yang gagal
                 Log::error('Error processing temperature item:', [
                     'item' => $item,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
                 ]);
-                continue; // Lanjut ke item berikutnya
+                $failedCount++;
+                continue;
             }
         }
 
+        // Update summaries hanya jika ada data yang berhasil diimport
         if ($importedCount > 0) {
-            $machine = Machine::findOrFail($request->machine_id);
-            $this->updateMonthlySummariesForMachine($machine);
+            try {
+                $machine = Machine::findOrFail($request->machine_id);
+                $this->updateMonthlySummariesForMachine($machine);
+
+                Log::info('Monthly summaries updated for machine:', [
+                    'machine_id' => $request->machine_id,
+                    'imported_count' => $importedCount
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to update monthly summaries:', [
+                    'machine_id' => $request->machine_id,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
 
-        // dd($response->json()); // <--- NYALAKAN INI HANYA UNTUK DEBUG
+        // Prepare success message
+        $message = "Upload PDF berhasil!";
 
-        return response()->json([
-            'success' => true,
-            'message' => "Sebanyak {$importedCount} data berhasil diekstrak, silahkan kembali dan refresh halaman temperature untuk melihat perubahan.",
-            'imported_count' => $importedCount
-        ]);
+        if ($importedCount > 0) {
+            $message .= " Sebanyak {$importedCount} data suhu baru berhasil diimpor.";
+        }
+
+        if ($duplicateCount > 0) {
+            $message .= " {$duplicateCount} data duplikat dilewati.";
+        }
+
+        if ($failedCount > 0) {
+            $message .= " {$failedCount} data gagal diproses.";
+        }
+
+        if ($importedCount === 0 && $duplicateCount === 0 && $failedCount === 0) {
+            $message = "Tidak ada data yang ditemukan dalam PDF.";
+        }
+
+        return redirect()->route('temperature.index')
+            ->with('success', $message);
 
     } catch (\Illuminate\Http\Client\ConnectionException $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Tidak dapat terhubung ke Python API. Pastikan server Python berjalan.'
-        ], 500);
+        Log::error('Python API Connection Error:', [
+            'error' => $e->getMessage(),
+            'url' => $pythonApiUrl
+        ]);
+
+        return redirect()->route('temperature.index')
+            ->with('error', 'Tidak dapat terhubung ke Python API. ' .
+                   'Pastikan: 1) Server Python berjalan, 2) URL benar, 3) Tidak ada firewall block.');
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        throw $e; // Biarkan Laravel handle validation error
+
     } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Error processing PDF: ' . $e->getMessage()
-        ], 400);
+        Log::error('PDF Upload Process Error:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'file' => $request->file('file')->getClientOriginalName(),
+            'machine_id' => $request->machine_id
+        ]);
+
+        return redirect()->route('temperature.index')
+            ->with('error', 'Terjadi kesalahan saat memproses PDF: ' . $e->getMessage());
     }
 }
 
