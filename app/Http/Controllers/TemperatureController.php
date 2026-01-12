@@ -204,36 +204,65 @@ class TemperatureController extends Controller
      * Upload dan proses PDF via Python
      */
     public function uploadPdfPy(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|file|mimes:pdf|max:10240',
-            'machine_id' => 'required|exists:machines,id'
-        ]);
+{
+    $request->validate([
+        'file' => 'required|file|mimes:pdf|max:10240',
+        'machine_id' => 'required|exists:machines,id'
+    ]);
 
-        try {
-            $file = $request->file('file');
-            $response = Http::attach(
+    try {
+        $file = $request->file('file');
+
+        // URL endpoint Python API
+        $pythonApiUrl = 'https://618906334270.ngrok-free.app/upload';
+
+        // Prepare file content based on environment
+        $fileContent = app()->environment('testing')
+            ? 'fake-content'
+            : file_get_contents($file->getRealPath());
+
+        // Send request to Python API
+        $response = Http::timeout(60) // Tambahkan timeout yang lebih panjang
+            ->attach(
                 'file',
-                app()->environment('testing') ? 'fake-content' : file_get_contents($file->getRealPath()),
-                // file_get_contents($file->getRealPath()),
+                $fileContent,
                 $file->getClientOriginalName()
-            )->post('http://127.0.0.1:5000/upload', [
-                        'machine_id' => $request->machine_id
-                    ]);
+            )->post($pythonApiUrl, [
+                'machine_id' => $request->machine_id
+            ]);
 
-            if ($response->failed()) {
-                return response()->json(['error' => 'Gagal menghubungi Python API'], 500);
-            }
+        // Debug response (aktifkan jika perlu)
+        // Log::info('Python API Response:', [
+        //     'status' => $response->status(),
+        //     'body' => $response->body()
+        // ]);
 
-            $data = $response->json();
-            $importedCount = 0;
+        if ($response->failed()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal menghubungi Python API. Status: ' . $response->status()
+            ], 500);
+        }
 
-            foreach ($data['temperature_data'] as $item) {
+        $data = $response->json();
+
+        // Validasi respons dari Python API
+        if (!isset($data['temperature_data']) || !is_array($data['temperature_data'])) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Format respons dari Python API tidak valid'
+            ], 500);
+        }
+
+        $importedCount = 0;
+
+        foreach ($data['temperature_data'] as $item) {
+            try {
                 $timestamp = Carbon::parse($item['timestamp']);
 
                 $temperature = Temperature::create([
                     'machine_id' => $item['machine_id'] ?? $request->machine_id,
-                    'temperature_value' => $item['temperature'] ?? null,
+                    'temperature_value' => $item['temperature'] ?? $item['temperature_value'] ?? null,
                     'timestamp' => $timestamp,
                     'reading_date' => $timestamp->format('Y-m-d'),
                     'reading_time' => $timestamp->format('H:i:s'),
@@ -243,23 +272,41 @@ class TemperatureController extends Controller
                 // Run anomaly check on imported temperature
                 $this->anomalyService->checkSingleReading($temperature);
                 $importedCount++;
+            } catch (\Exception $e) {
+                // Log error untuk setiap item yang gagal
+                Log::error('Error processing temperature item:', [
+                    'item' => $item,
+                    'error' => $e->getMessage()
+                ]);
+                continue; // Lanjut ke item berikutnya
             }
+        }
 
+        if ($importedCount > 0) {
             $machine = Machine::findOrFail($request->machine_id);
             $this->updateMonthlySummariesForMachine($machine);
-            // dd($response->json()); // <--- NYALAKAN INI
-
-            return response()->json([
-                'success' => true,
-                'message' => "Sebanyak {$importedCount} data berhasil diekstrak, silahkan kembali dan refresh halaman temperatre    untuk melihat perubahan."
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error processing PDF: ' . $e->getMessage()
-            ], 400);
         }
+
+        // dd($response->json()); // <--- NYALAKAN INI HANYA UNTUK DEBUG
+
+        return response()->json([
+            'success' => true,
+            'message' => "Sebanyak {$importedCount} data berhasil diekstrak, silahkan kembali dan refresh halaman temperature untuk melihat perubahan.",
+            'imported_count' => $importedCount
+        ]);
+
+    } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Tidak dapat terhubung ke Python API. Pastikan server Python berjalan.'
+        ], 500);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error processing PDF: ' . $e->getMessage()
+        ], 400);
     }
+}
 
     public function validateTemperature($date)
     {
