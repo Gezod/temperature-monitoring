@@ -214,7 +214,7 @@ public function uploadPdfPy(Request $request)
         $file = $request->file('file');
 
         // URL endpoint Python API
-        $pythonApiUrl = 'https://f8306d2cf7ad.ngrok-free.app//upload';
+        $pythonApiUrl = 'https://466892740e9a.ngrok-free.app//upload';
 
         // Prepare file content based on environment
         $fileContent = app()->environment('testing')
